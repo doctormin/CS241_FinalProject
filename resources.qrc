@@ -1,2 +1,57 @@
-<!DOCTYPE RCC>
-<RCC version="1.0"/>
+<RCC>
+    <qresource prefix="/icons">
+        <file>icons/001-desert.png</file>
+        <file>icons/002-meadow.png</file>
+        <file>icons/003-river.png</file>
+        <file>icons/004-lake.png</file>
+        <file>icons/005-glacier.png</file>
+        <file>icons/006-forest.png</file>
+        <file>icons/007-cave.png</file>
+        <file>icons/008-cave.png</file>
+        <file>icons/009-volcano.png</file>
+        <file>icons/010-volcano.png</file>
+        <file>icons/011-crater.png</file>
+        <file>icons/012-oasis.png</file>
+        <file>icons/013-jungle.png</file>
+        <file>icons/014-waterfall.png</file>
+        <file>icons/015-waterfall.png</file>
+        <file>icons/016-waterfall.png</file>
+        <file>icons/017-storm.png</file>
+        <file>icons/018-rainbow.png</file>
+        <file>icons/019-fish.png</file>
+        <file>icons/020-coral reef.png</file>
+        <file>icons/021-hurricane.png</file>
+        <file>icons/022-mountain.png</file>
+        <file>icons/023-canyon.png</file>
+        <file>icons/024-polar lights.png</file>
+        <file>icons/025-fossil.png</file>
+        <file>icons/026-earthquake.png</file>
+        <file>icons/027-village.png</file>
+        <file>icons/028-meadow.png</file>
+        <file>icons/029-buildings.png</file>
+        <file>icons/030-beach.png</file>
+        <file>icons/031-bridge.png</file>
+        <file>icons/032-garden.png</file>
+        <file>icons/033-fountain.png</file>
+        <file>icons/034-canyon.png</file>
+        <file>icons/035-Mining.png</file>
+        <file>icons/036-desert.png</file>
+        <file>icons/037-road.png</file>
+        <file>icons/038-train.png</file>
+        <file>icons/039-island.png</file>
+        <file>icons/040-polar lights.png</file>
+        <file>icons/041-cars.png</file>
+        <file>icons/042-sun.png</file>
+        <file>icons/043-hills.png</file>
+        <file>icons/044-sun.png</file>
+        <file>icons/045-rocks.png</file>
+        <file>icons/046-half moon.png</file>
+        <file>icons/047-mountains.png</file>
+        <file>icons/048-hills.png</file>
+        <file>icons/049-forest.png</file>
+        <file>icons/050-hills.png</file>
+        <file>icons/train-station.png</file>
+        <file>icons/lille-metro-logo.png</file>
+        <file>icons/metro.png</file>
+    </qresource>
+</RCC>
