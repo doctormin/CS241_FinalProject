@@ -6,20 +6,13 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    QString sPath = "C:/";
-    dirmodel = new QFileSystemModel(this);
-    dirmodel->setRootPath(sPath);
-    ui->treeView->setModel(dirmodel);
-    QModelIndex index = dirmodel->index("C:/");
-    ui->treeView->expand(index);
-    ui->treeView->scrollTo(index);
-    ui->treeView->setAnimated(true); //开启折叠动画
-    ui->treeView->setSortingEnabled(true); //开启sorting权限
-    ui->treeView->resizeColumnToContents(0); //保证第一列够宽
 
-//    ui->treeWidget->setColumnCount(2);
-//    ui->treeWidget->setHeaderLabels(QStringList() << "one" << "two");
-//    AddRoot("hello", "world");
+    ui->treeWidget->setColumnCount(3);
+    ui->treeWidget->setHeaderLabels(QStringList() << "Name " << "Size" << "Type");
+    QHeaderView *head=ui->treeWidget->header();
+    head->setSectionResizeMode(QHeaderView::ResizeToContents);
+    //将"复选框被勾选"的信号与"更新父子选择状态"的槽函数关联起来
+    connect(ui->treeWidget, SIGNAL(itemChanged(QTreeWidgetItem*, int)), this, SLOT(onTreeItemChanged(QTreeWidgetItem*, int)));
 }
 
 MainWindow::~MainWindow()
@@ -30,55 +23,124 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_pushButton_clicked()
 {
-    //load the file
-    QString file_name = QFileDialog::getOpenFileName(this, "Please choose the data set folder", QDir::homePath());
+    //load the chosen file
 
 }
+//AddRoot实现文件树父节点的添加（即按照日期分类）
+void MainWindow::AddRoot(QString name, int start, int end, QList<QFileInfo> &list)
+{
+    QTreeWidgetItem *itm = new QTreeWidgetItem(ui->treeWidget);
+    itm->setText(0, name);
+    itm->setText(1, " ");
+    itm->setText(1, " ");
+    //添加复选框 并初始化为unchecked
+    itm->setCheckState(0, Qt::Unchecked);
+    for(int i = start; i <= end; i++)
+    {
+        AddChild(itm , list.at(i).fileName()+"         ", QString::number(list.at(i).size()/1024)+"KB         ", "csv File");
+    }
 
-//void MainWindow::AddRoot(QString name, QString Description)
-//{
-//    QTreeWidgetItem *itm = new QTreeWidgetItem(ui->treeWidget);
-//    itm->setText(0, name);
-//    itm->setText(1, Description);
+}
+//AddChild实现文件树子节点的添加（即.csv文件条目）
+void MainWindow::AddChild(QTreeWidgetItem *parent,QString name, QString size, QString type)
+{
+    QTreeWidgetItem *itm = new QTreeWidgetItem();
 
-//    AddChild(itm, "one", "hello");
-//    AddChild(itm, "two", "hello");
-//}
-//void MainWindow::AddChild(QTreeWidgetItem *parent,QString name, QString Description)
-//{
-//    QTreeWidgetItem *itm = new QTreeWidgetItem();
-//    itm->setText(0, name);
-//    itm->setText(1, Description);
-//    parent->addChild(itm);
-//}
+    itm->setText(0, name);
+    itm->setText(1, size);
+    itm->setText(2, type);
+    //添加复选框 并初始化为unchecked
+    itm->setCheckState(0, Qt::Unchecked);
+    parent->addChild(itm);
 
-//void MainWindow::on_pushButton_2_clicked()
-//{
-//    //make dir
-//    QModelIndex index = ui->treeView->currentIndex();
-//    if(!index.isValid()) return;
+}
+//onTreeItemChanged实现文件树中任意一个结点被勾选后，其子和其父的状态同步更新（此函数仅仅适用于二层次情况）
+void MainWindow::onTreeItemChanged(QTreeWidgetItem * item, int column)
+{
+    int count = item->childCount(); //返回子项的个数
+    if (item->checkState(0) == Qt::Checked) //即该节点被勾选时
+    {
+        if(count > 0) //即该item有子节点
+        {
+            for(int i = 0; i < count; i++) //同步其所有子节点的状态
+            {
+                item->child(i)->setCheckState(0, Qt::Checked);
+            }
+            //updateParentItem(item); //为了优化性能，对于已知是二层次的情况，可以不调用
+        }
+        else //即该item没有子节点时 更新其父节点
+        {
+            updateParentItem(item);
+        }
+    }
+    if (item->checkState(0) == Qt::Unchecked) //即该节点被除去勾选时
+    {
+        if(count > 0) //即该item有子节点
+        {
+            for(int i = 0; i < count; i++) //同步其所有子节点的状态
+            {
+                item->child(i)->setCheckState(0, Qt::Unchecked);
+            }
+        }
+        else //即该item没有子节点
+        {
+             updateParentItem(item);
+        }
+    }
+}
+void MainWindow::updateParentItem(QTreeWidgetItem* item)
+{
+    QTreeWidgetItem *parent = item->parent();
+    if(parent == NULL) return;
+    //子节点中被选中的数目
+    int nSelectedCount = 0;
+    //子节点数
+    int childCount = parent->childCount();
+    //判断有多少个子项被选中
+    for (int i = 0; i < childCount; i++)
+    {
+        QTreeWidgetItem* childItem = parent->child(i);
+        if (childItem->checkState(0) == Qt::Checked || childItem->checkState(0) == Qt::PartiallyChecked)
+        {
+               nSelectedCount++;
+        }
+    }
+    if (nSelectedCount <= 0)  //如果没有子项被选中，父项设置为未选中状态
+            parent->setCheckState(0, Qt::Unchecked);
+    else if (nSelectedCount > 0 && nSelectedCount < childCount)    //如果有部分子项被选中，父项设置为部分选中状态，即用灰色显示
+           parent->setCheckState(0, Qt::PartiallyChecked);
+    else if (nSelectedCount == childCount)    //如果子项全部被选中，父项则设置为选中状态
+           parent->setCheckState(0, Qt::Checked);
+    //updateParentItem(parent); //为了优化性能，对于已知是二层次的情况，可以不递归调用
+}
 
-//    QString name = QInputDialog::getText(this, "Name", "Enter a name");
-//    if(name.isEmpty()) return;
+//以下函数为“choose a folder”按钮按下后的槽函数
+void MainWindow::on_pushButton_2_clicked()
+{
+    QString folder_dir = QFileDialog::getExistingDirectory(this, "Please choose the \"dataset\" folder", QDir::homePath());
+    QDir dir = folder_dir;
 
-//    model->mkdir(index, name);
+    //以下三句可以实现entryInfoList仅仅返回.csv文件的文件名
+    QStringList filters;
+    filters << "*.csv";
+    dir.setNameFilters(filters);
+    QList<QFileInfo> list = dir.entryInfoList();
 
-//}
+    /*此代码块可以显示dataset下的所有文件的文件绝对路径
+    for (int i = 0; i < list.size(); i++)
+    {
+        qDebug() << "Filename " + QString::number(i) + " = " + list.at(i).filePath();
+    }
+    */
 
-//void MainWindow::on_pushButton_3_clicked()
-//{
-//    //delete dir
-//    QModelIndex index = ui->treeView->currentIndex();
-//    if(!index.isValid()) return;
+    //以下代码实现文件树的建立（并包含复选框）
+    AddRoot("2019.1.07", 0, 29, list);
+    AddRoot("2019.1.08", 30, 59, list);
+    AddRoot("2019.1.09", 60, 89, list);
+    AddRoot("2019.1.10", 90, 119, list);
+    AddRoot("2019.1.11", 120, 149, list);
+    AddRoot("2019.1.12", 150, 179, list);
+    AddRoot("2019.1.13", 180, 209, list);
+    //TODO:通过复选框的选择载入相应文件入sql中
 
-//    if(model->fileInfo(index).isDir())
-//    {
-//        //dir
-//        model->rmdir(index);
-//    }
-//    else
-//    {
-//        //file
-//        model->remove(index);
-//    }
-//}
+}
