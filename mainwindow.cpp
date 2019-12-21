@@ -21,7 +21,9 @@ MainWindow::MainWindow(QWidget *parent)
     else
     {
         database = QSqlDatabase::addDatabase("QSQLITE");
-        database.setDatabaseName("MyDataBase.db");
+        //以下两句保证了 1.数据库仅仅存在于内存中 2.数据库可以建立多个connection(用于多线程)
+        database.setConnectOptions("QSQLITE_OPEN_URI;QSQLITE_ENABLE_SHARED_CACHE");
+        database.setDatabaseName("file::memory:");
     }
     //以下代码打开了数据库
     if (!database.open())
@@ -34,7 +36,8 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     delete ui;
-    //删除table
+    //删除table(此程序中采用了内存数据库，无需delete)
+    /*
     QSqlQuery sql;
     sql.prepare("DROP TABLE METRO_PASSENGERS;");
     if(!sql.exec())
@@ -45,14 +48,15 @@ MainWindow::~MainWindow()
     {
         qDebug() << "Table deleted!";
     }
+    */
     database.close();
 }
 
 //以下函数为“load chosen files”按钮按下后的槽函数
 void MainWindow::on_pushButton_clicked()
-{   /*
+{
     ui->pushButton->setEnabled(false);
-    ///Step0: 解析数据（将csv中每一列都单独存起来) （防冻多线程+多线程解析）
+    ///Step0: 解析数据（将csv中每一列都单独存起来) （防冻+多线程解析）
     QStringList time_list;
     QStringList lineID_list;
     QStringList stationID_list;
@@ -61,7 +65,7 @@ void MainWindow::on_pushButton_clicked()
     QStringList userID_list;
     QStringList payType_list;
     //将选择的文件载入进行处理
-    */
+
     ///Step1: 建立table
     QSqlQuery sql;
     sql.prepare(
@@ -192,7 +196,6 @@ void MainWindow::on_pushButton_2_clicked()
         qDebug() << "Filename " + QString::number(i) + " = " + list.at(i).filePath();
     }
     */
-
     //以下代码实现文件树的建立（并包含复选框）
     AddRoot("2019.1.07", 0, 29, list);
     AddRoot("2019.1.08", 30, 59, list);
