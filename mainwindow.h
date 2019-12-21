@@ -15,7 +15,10 @@
 #include <QtDebug>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
-#include <string>
+#include <QSqlDatabase>
+#include <QSqlError>
+#include <QSqlQuery>
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -32,6 +35,7 @@ public:
     void AddChild(QTreeWidgetItem *parent,QString name, QString size, QString type);
     //用于更新父节点的checkstate(当子节点改变时）
     void updateParentItem(QTreeWidgetItem* item);
+    QSqlDatabase database;
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();

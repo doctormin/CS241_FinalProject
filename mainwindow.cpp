@@ -13,18 +13,78 @@ MainWindow::MainWindow(QWidget *parent)
     head->setSectionResizeMode(QHeaderView::ResizeToContents);
     //将"复选框被勾选"的信号与"更新父子选择状态"的槽函数关联起来
     connect(ui->treeWidget, SIGNAL(itemChanged(QTreeWidgetItem*, int)), this, SLOT(onTreeItemChanged(QTreeWidgetItem*, int)));
+    //以下代码初始化了数据库连接
+    if (QSqlDatabase::contains("qt_sql_default_connection"))
+    {
+        database = QSqlDatabase::database("qt_sql_default_connection");
+    }
+    else
+    {
+        database = QSqlDatabase::addDatabase("QSQLITE");
+        database.setDatabaseName("MyDataBase.db");
+    }
+    //以下代码打开了数据库
+    if (!database.open())
+    {
+        qDebug() << "Error: Failed to connect database." << database.lastError();
+    }
+    else qDebug() << "opened successfully !";
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
+    //删除table
+    QSqlQuery sql;
+    sql.prepare("DROP TABLE METRO_PASSENGERS;");
+    if(!sql.exec())
+    {
+        qDebug() << "Error: Fail to delete table." << sql.lastError();
+    }
+    else
+    {
+        qDebug() << "Table deleted!";
+    }
+    database.close();
 }
 
-
+//以下函数为“load chosen files”按钮按下后的槽函数
 void MainWindow::on_pushButton_clicked()
-{
-    //load the chosen file
+{   /*
+    ui->pushButton->setEnabled(false);
+    ///Step0: 解析数据（将csv中每一列都单独存起来) （防冻多线程+多线程解析）
+    QStringList time_list;
+    QStringList lineID_list;
+    QStringList stationID_list;
+    QStringList deviceID_list;
+    QStringList status_list;
+    QStringList userID_list;
+    QStringList payType_list;
+    //将选择的文件载入进行处理
+    */
+    ///Step1: 建立table
+    QSqlQuery sql;
+    sql.prepare(
+                "CREATE TABLE IF NOT EXISTS METRO_PASSENGERS ("\
+                "time       TEXT PRIMARY KEY  NOT NULL,"\
+                "lineID     TEXT    NOT NULL,"\
+                "stationID  INT     NOT NULL,"\
+                "deviceID   INT     NOT NULL,"\
+                "status     INT     NOT NULL,"\
+                "userID     TEXT    NOT NULL,"\
+                "payType    INT     NOT NULL);"
+                );
 
+    if(!sql.exec())
+    {
+        qDebug() << "Error: Fail to create table." << sql.lastError();
+    }
+    else
+    {
+        qDebug() << "Table created!";
+    }
+    ///Step2: 插入数据 （多线程）
+    ui->pushButton->setEnabled(true);
 }
 //AddRoot实现文件树父节点的添加（即按照日期分类）
 void MainWindow::AddRoot(QString name, int start, int end, QList<QFileInfo> &list)
@@ -64,7 +124,7 @@ void MainWindow::onTreeItemChanged(QTreeWidgetItem * item, int column)
         {
             for(int i = 0; i < count; i++) //同步其所有子节点的状态
             {
-                item->child(i)->setCheckState(0, Qt::Checked);
+                item->child(i)->setCheckState(column, Qt::Checked);
             }
             //updateParentItem(item); //为了优化性能，对于已知是二层次的情况，可以不调用
         }
@@ -79,7 +139,7 @@ void MainWindow::onTreeItemChanged(QTreeWidgetItem * item, int column)
         {
             for(int i = 0; i < count; i++) //同步其所有子节点的状态
             {
-                item->child(i)->setCheckState(0, Qt::Unchecked);
+                item->child(i)->setCheckState(column, Qt::Unchecked);
             }
         }
         else //即该item没有子节点
