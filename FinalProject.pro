@@ -2,6 +2,7 @@ QT       += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 QT += sql
+QT += concurrent
 
 CONFIG += c++11
 
@@ -18,10 +19,12 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    worker1.cpp
 
 HEADERS += \
-    mainwindow.h
+    mainwindow.h \
+    worker1.h
 
 FORMS += \
     mainwindow.ui
