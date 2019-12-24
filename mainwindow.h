@@ -25,8 +25,6 @@ QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
 
-
-
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -53,7 +51,7 @@ public:
     ~MainWindow();
 signals:
     void choose_finished();
-    void fileloadingFinished(int time);
+    void fileloadingFinished(double time);
     void LoadingProcessChanged(int, int);
 private slots:
     void on_pushButton_clicked();
@@ -61,7 +59,7 @@ private slots:
     void loadfile_enable();
     void ChangeStatusBarWhileLoaingFile(int, int);
     void onTreeItemChanged(QTreeWidgetItem * item, int column);
-    void onLoadingFinished(int time);
+    void onLoadingFinished(double time);
 private:
     Ui::MainWindow *ui;
 

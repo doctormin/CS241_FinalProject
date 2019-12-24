@@ -17,8 +17,8 @@ MainWindow::MainWindow(QWidget *parent)
     //将"复选框被勾选"的信号与"更新父子选择状态"的槽函数关联起来
     connect(ui->treeWidget, SIGNAL(itemChanged(QTreeWidgetItem*, int)), this, SLOT(onTreeItemChanged(QTreeWidgetItem*, int)));
     connect(this, SIGNAL(choose_finished()), this, SLOT(loadfile_enable()));
-    connect(this, SIGNAL(fileloadingFinished(int)), this, SLOT(onLoadingFinished(int)));
-    connect(this, SIGNAL(fileloadingFinished(int)), this, SLOT(loadfile_enable()));
+    connect(this, SIGNAL(fileloadingFinished(double)), this, SLOT(onLoadingFinished(double)));
+    connect(this, SIGNAL(fileloadingFinished(double)), this, SLOT(loadfile_enable()));
     connect(this, SIGNAL(LoadingProcessChanged(int, int)), this, SLOT(ChangeStatusBarWhileLoaingFile(int, int)));
     //以下代码初始化了数据库连接
     if (QSqlDatabase::contains("qt_sql_default_connection"))
@@ -380,7 +380,7 @@ void MainWindow::csv_parser()
         qDebug() << sql.value(0);
     }
     */
-    int Time = time->restart()/1000;
+    double Time = time->restart()/1000.0;
     qDebug() << "time is " << Time;
     emit(fileloadingFinished(Time));
     database.close();
@@ -398,7 +398,7 @@ void MainWindow::ChangeStatusBarWhileLoaingFile(int i, int j)
     ui->statusbar->showMessage(status);
 }
 
-void MainWindow::onLoadingFinished(int time)
+void MainWindow::onLoadingFinished(double time)
 {
     QString status = "Finished in " + QString::number(time) + "s";
     ui->statusbar->showMessage(status);
