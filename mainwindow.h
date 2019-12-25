@@ -47,6 +47,7 @@ private:
     QString folder_dir; //储存dataset文件夹的路径
     QSqlQueryModel *model;
     int times_of_button3_clicked;
+    bool matrix[81][81];
     bool filter_time;
     bool filter_lineID;
     bool filter_stationID;
@@ -82,6 +83,10 @@ private slots:
     void onLoadingFinished(double time);
     void on_pushButton_3_clicked();
     void on_insertfailed();
+
+    void on_pushButton_4_clicked();
+
+    void on_pushButton_5_clicked();
 
 private:
     Ui::MainWindow *ui;

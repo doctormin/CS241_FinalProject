@@ -22,6 +22,7 @@ MainWindow::MainWindow(QWidget *parent)
     QHeaderView *head=ui->treeWidget->header();
     head->setSectionResizeMode(QHeaderView::ResizeToContents);
     ui->statusbar->addPermanentWidget(ui->progressBar);
+    ui->pushButton_5->setEnabled(false);
     //将"复选框被勾选"的信号与"更新父子选择状态"的槽函数关联起来
     connect(ui->treeWidget, SIGNAL(itemChanged(QTreeWidgetItem*, int)), this, SLOT(onTreeItemChanged(QTreeWidgetItem*, int)));
     //connect(this, SIGNAL(droptable()), this, SLOT(on_droptable()));
@@ -819,7 +820,7 @@ void MainWindow::ChangeStatusBarWhileLoaingFile(int i, int j)
 {
     QString status = "loading file " + QString::number(i) + " / " +  QString::number(j) + " ....";
     ui->statusbar->showMessage(status);
-    int x = i / j * 100;
+    double x = double(i) / j * 100;
     ui->progressBar->setValue(x);
 }
 
@@ -883,4 +884,46 @@ void MainWindow::runsql_disable()
     ui->pushButton_3->setEnabled(false);\
     ui->statusbar->showMessage("Please load newly chosen files first.");
     qDebug() << "ui->pushButton_3 disabled!";
+}
+//load map
+void MainWindow::on_pushButton_4_clicked()
+{
+    QString filter = "CSV Files (*.csv)";
+    QString file_name = QFileDialog::getOpenFileName(this, "Please choose the Metro_roadMap.csv", QDir::homePath(), filter);
+    qDebug() << file_name;
+    //open the file chosen
+    QFile file(file_name);
+    //file not opened
+    if(!file.open(QFile::ReadOnly | QFile::Text))
+    {
+        QMessageBox::warning(this, "warning", "file not opened");
+        return;
+    }
+
+    QTextStream in(&file);
+    in.readLine(); //第一行不要
+    QString fileline;
+    QStringList list;
+    int j = 0;
+    while(!in.atEnd())
+    {
+        fileline = in.readLine();
+        //qDebug() << fileline;
+        list = fileline.split(",");
+        for(int i = 1; i < 82; i++)
+            MainWindow::matrix[j][i-1] = list[i].toInt();
+        j++;
+
+    }
+    /*
+    for(int i = 0; i < 80; i++)
+        for (j = 0; j < 80; j++)
+            qDebug() << matrix[i][j];*/
+    ui->statusbar->showMessage("Map loaded successfully !");
+    ui->pushButton_5->setEnabled(true);
+}
+//Get the Plan
+void MainWindow::on_pushButton_5_clicked()
+{
+
 }
