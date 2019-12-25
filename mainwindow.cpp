@@ -6,20 +6,33 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
+    times_of_button3_clicked = 0;
     qDebug() << "Main thread : " << QThread::currentThreadId();
-
+    filter_time = true;
+    filter_lineID = true;
+    filter_stationID = true;
+    filter_deviceID = true;
+    filter_status = true;
+    filter_userID = true;
+    filter_payType = true;
     ui->setupUi(this);
-
+    ui->progressBar->hide();
     ui->treeWidget->setColumnCount(3);
     ui->treeWidget->setHeaderLabels(QStringList() << "Name " << "Size" << "Type");
     QHeaderView *head=ui->treeWidget->header();
     head->setSectionResizeMode(QHeaderView::ResizeToContents);
+    ui->statusbar->addPermanentWidget(ui->progressBar);
     //将"复选框被勾选"的信号与"更新父子选择状态"的槽函数关联起来
     connect(ui->treeWidget, SIGNAL(itemChanged(QTreeWidgetItem*, int)), this, SLOT(onTreeItemChanged(QTreeWidgetItem*, int)));
+    //connect(this, SIGNAL(droptable()), this, SLOT(on_droptable()));
+    // connect(this, SIGNAL(pushbutton3()), this, SLOT(on_pushButton_3_clicked()));
     connect(this, SIGNAL(choose_finished()), this, SLOT(loadfile_enable()));
+    connect(ui->treeWidget, SIGNAL(itemChanged(QTreeWidgetItem*, int)), this, SLOT(runsql_disable()));
     connect(this, SIGNAL(fileloadingFinished(double)), this, SLOT(onLoadingFinished(double)));
     connect(this, SIGNAL(fileloadingFinished(double)), this, SLOT(loadfile_enable()));
+    connect(this, SIGNAL(insertfailed()), this, SLOT(on_insertfailed()));
     connect(this, SIGNAL(LoadingProcessChanged(int, int)), this, SLOT(ChangeStatusBarWhileLoaingFile(int, int)));
+    //connect(this, SIGNAL(fileloadingFinished(double)), this, SLOT(on_paser_finished()));
     //以下代码初始化了数据库连接
     if (QSqlDatabase::contains("qt_sql_default_connection"))
     {
@@ -77,9 +90,11 @@ MainWindow::~MainWindow()
 //以下函数为“load chosen files”按钮按下后的槽函数
 void MainWindow::on_pushButton_clicked()
 {
-
+    ui->pushButton_3->setEnabled(false); //在载入文件完成之前，apply是无效的
     ui->pushButton->setEnabled(false);
+    ui->progressBar->show();
     time->start();
+
     ///Step0: 解析数据（将csv中每一列都单独存起来) （防冻+多线程解析）
     QStringList time_list;
     QStringList lineID_list;
@@ -88,21 +103,123 @@ void MainWindow::on_pushButton_clicked()
     QStringList status_list;
     QStringList userID_list;
     QStringList payType_list;
-    //将选择的文件载入进行处理
-    ///Step1: 建立table(数据库已经在构造函数中初始化了）
+
+    ///Step1: 建立table(数据库已经在构造函数中初始化了)
+    if(!database.isOpen())
+    {
+        if (!database.open())
+        {
+            qDebug() << "Error: Failed to connect database in main thread" << database.lastError();
+        }
+        else
+        {
+            qDebug() << "opened successfully in main thread!";
+        }
+    }
+    if(database.tables().contains("METRO_PASSENGERS")){
+        emit droptable();
+        qDebug() << "emit droptable()";
+
+     }
+    //DROP table if exists
+    if(times_of_button3_clicked > 0) model->clear();
     QSqlQuery sql(database);
     if(!sql.prepare("DROP TABLE IF EXISTS METRO_PASSENGERS")) qDebug() << "Drop prepare failed";
     if(!sql.exec()) qDebug() << "Drop failed";
-    if(sql.prepare(
-                "CREATE TABLE IF NOT EXISTS METRO_PASSENGERS ("\
-                "time       TEXT,"\
-                "lineID     TEXT,"\
-                "stationID  INT,"\
-                "deviceID   INT,"\
-                "status     INT,"\
-                "userID     TEXT,"\
-                "payType    INT);"
-                ))
+    else qDebug() << "DROP SUCCESSFULY";
+
+    QString creat_time      = "time       TEXT";
+    QString creat_lineID    = "lineID     TEXT";
+    QString creat_stationID = "stationID  INT";
+    QString creat_deviceID  = "deviceID   INT";
+    QString creat_status    = "status     INT";
+    QString creat_userID    = "userID     TEXT";
+    QString creat_payType   = "payType    INT";
+
+    QString query = "CREATE TABLE IF NOT EXISTS METRO_PASSENGERS (";
+
+    bool isFirst = true;
+
+    if(filter_time)
+    {
+        query = query + creat_time;
+        isFirst = false;
+    }
+    if(filter_lineID)
+    {
+        if(isFirst)
+        {
+             query = query + creat_lineID;
+             isFirst = false;
+        }
+        else
+             query = query + ", " + creat_lineID;
+    }
+    if(filter_stationID)
+    {
+        if(isFirst)
+        {
+             query = query + creat_stationID;
+             isFirst = false;
+        }
+        else
+             query = query + ", " + creat_stationID;
+    }
+    if(filter_deviceID)
+    {
+        if(isFirst)
+        {
+             query = query + creat_deviceID;
+             isFirst = false;
+        }
+        else
+             query = query + ", " + creat_deviceID;
+    }
+    if(filter_status)
+    {
+        if(isFirst)
+        {
+             query = query + creat_status;
+             isFirst = false;
+        }
+        else
+            query = query + ", " + creat_status;
+    }
+    if(filter_userID)
+    {
+
+        if(isFirst)
+        {
+             query = query + creat_userID;
+             isFirst = false;
+        }
+        else
+             query = query + ", " + creat_userID;
+    }
+    if(filter_payType)
+    {
+        if(isFirst)
+        {
+             query = query + creat_payType;
+             isFirst = false;
+        }
+        else
+             query = query + ", " + creat_payType;
+    }
+    /*
+    qDebug()
+            << "filter_time" << filter_time
+            << "filter_lineID" << filter_lineID
+            << "filter_stationID" <<filter_stationID
+            << "filter_deviceID" << filter_deviceID
+            << "filter_status" << filter_status
+            << "filter_userID" << filter_userID
+            << "filter_payType" << filter_payType;
+    */
+    query += ");";
+    qDebug() << "+++++++++++++++++++++++++++++++++++++++++++++" << query;
+
+    if(sql.prepare(query))
         qDebug() << "creating table query prepared!";
     else qDebug() << "creating table query not prepared!";
 
@@ -118,10 +235,18 @@ void MainWindow::on_pushButton_clicked()
     qDebug() << "mainthread" << QThread::currentThreadId();
     QFuture<void> f = QtConcurrent::run(this, &MainWindow::csv_parser);
 }
-
 //AddOrigin实现顶层目录的添加（便于快速全选以及load chosen file中使用迭代器checkstate遍历）
 void MainWindow::AddOrigin(QString name)
 {
+    QTreeWidgetItem * filter = new QTreeWidgetItem(ui->treeWidget); //最顶层的结点
+    filter->setText(0, "filter(only chosen fields will be loaded into SQL)");
+    AddRoot(filter, "load time");
+    AddRoot(filter, "load lineID");
+    AddRoot(filter, "load stationID");
+    AddRoot(filter, "load deviceID");
+    AddRoot(filter, "load status");
+    AddRoot(filter, "load userID");
+    AddRoot(filter, "load payType");
     QTreeWidgetItem *itm = new QTreeWidgetItem(ui->treeWidget); //最顶层的结点
     itm->setText(0, name);
     itm->setText(1, " ");
@@ -150,6 +275,16 @@ void MainWindow::AddRoot(QTreeWidgetItem *parent, QString name, int start, int e
     }
     parent->addChild(itm);
 }
+void MainWindow::AddRoot(QTreeWidgetItem *parent, QString name)
+{
+    QTreeWidgetItem *itm = new QTreeWidgetItem();
+    itm->setText(0, name);
+    itm->setText(1, " ");
+    itm->setText(2, " ");
+    //添加复选框 并初始化为checked
+    itm->setCheckState(0, Qt::Checked);
+    parent->addChild(itm);
+}
 //AddChild实现文件树子节点的添加（即.csv文件条目）
 void MainWindow::AddChild(QTreeWidgetItem *parent ,QString name, QString size, QString type)
 {
@@ -165,6 +300,119 @@ void MainWindow::AddChild(QTreeWidgetItem *parent ,QString name, QString size, Q
 //onTreeItemChanged实现文件树中任意一个结点被勾选后，其子和其父的状态同步更新（此函数仅仅适用于二层次情况）
 void MainWindow::onTreeItemChanged(QTreeWidgetItem * item, int column)
 {
+    qDebug() << "Item changed triggered ======================";
+    //即改变的item隶属于filter目录下
+    if(item->text(0) == "load time")
+    {
+        if(item->checkState(0) ==  Qt::Checked)
+        {
+            filter_time = true;
+            qDebug() << "filter_time -> True!";
+        }
+        if(item->checkState(0) ==  Qt::Unchecked)
+        {
+            filter_time = false;
+            qDebug() << "filter_time -> False!";
+        }
+        return;
+    }
+    if(item->text(0) ==  "load lineID")
+    {
+        if(item->checkState(0) ==  Qt::Checked)
+        {
+
+            filter_lineID = true;
+            qDebug() << "filter_lineID -> True!";
+        }
+        if(item->checkState(0) ==  Qt::Unchecked)
+        {
+
+            filter_lineID = false;
+            qDebug() << "filter_lineID -> False!";
+        }
+        return;
+    }
+    if(item->text(0) ==  "load stationID")
+    {
+        if(item->checkState(0) ==  Qt::Checked)
+        {
+
+            filter_stationID = true;
+            qDebug() << "filter_stationID -> True!";
+        }
+        if(item->checkState(0) ==  Qt::Unchecked)
+        {
+
+            filter_stationID = false;
+            qDebug() << "filter_stationID -> False!";
+        }
+        return;
+    }
+    if(item->text(0) ==  "load deviceID")
+    {
+        if(item->checkState(0) ==  Qt::Checked)
+        {
+
+            filter_deviceID = true;
+            qDebug() << "filter_deviceID -> True!";
+        }
+        if(item->checkState(0) ==  Qt::Unchecked)
+        {
+
+            filter_deviceID = false;
+            qDebug() << "filter_diviceID -> False!";
+        }
+        return;
+    }
+    if(item->text(0) ==  "load status" )
+    {
+        if(item->checkState(0) ==  Qt::Checked)
+        {
+
+            filter_status = true;
+            qDebug() << "filter_status -> True!";
+        }
+        if(item->checkState(0) ==  Qt::Unchecked)
+        {
+
+            filter_status = false;
+            qDebug() << "filter_status -> False!";
+        }
+        return;
+    }
+    if(item->text(0) ==  "load userID" )
+    {
+        if(item->checkState(0) ==  Qt::Checked)
+        {
+
+            filter_userID = true;
+            qDebug() << "filter_userID -> True!";
+        }
+        if(item->checkState(0) ==  Qt::Unchecked)
+        {
+
+            filter_userID = false;
+            qDebug() << "filter_userID -> False!";
+        }
+        return;
+    }
+    if(item->text(0) == "load payType" )
+    {
+        if(item->checkState(0) ==  Qt::Checked)
+        {
+
+            filter_payType = true;
+            qDebug() << "filter_payType -> True!";
+        }
+        if(item->checkState(0) ==  Qt::Unchecked)
+        {
+
+            filter_payType = false;
+            qDebug() << "filter_payType -> False!";
+        }
+        return;
+    }
+
     int count = item->childCount(); //返回子项的个数
     if (item->checkState(0) == Qt::Checked) //即该节点被勾选时
     {
@@ -192,17 +440,27 @@ void MainWindow::onTreeItemChanged(QTreeWidgetItem * item, int column)
         }
         else //即该item没有子节点
         {
-             updateParentItem(item);
+            updateParentItem(item);
         }
     }
-
     file_chosen_name_list.clear();
     //以下代码负责维护一个QStringList, 负责储存所有被勾选的文件的文件名
     QTreeWidgetItemIterator iterator(ui->treeWidget);
     while(*iterator)
     {
-        if(((*iterator)->checkState(0) == Qt::Checked) && ((*iterator)->childCount() == 0))
+        if(    ((*iterator)->checkState(0) == Qt::Checked)
+            && ((*iterator)->childCount() == 0)
+            && ((*iterator)->text(0) != "load time")
+            && ((*iterator)->text(0) != "load lineID")
+            && ((*iterator)->text(0) != "load stationID")
+            && ((*iterator)->text(0) != "load deviceID")
+            && ((*iterator)->text(0) != "load status")
+            && ((*iterator)->text(0) != "load userID")
+            && ((*iterator)->text(0) != "load payType")
+           )
+        {
             file_chosen_name_list << ((*iterator)->text(0));
+        }
         ++iterator;
     }
     //removeListSame(file_chosen_name_list);  好像并不需要它(去重）
@@ -246,13 +504,13 @@ void MainWindow::updateParentItem(QTreeWidgetItem* item)
            parent->setCheckState(0, Qt::Checked);
     updateParentItem(parent);
 }
-
 //以下函数为“choose a folder”按钮按下后的槽函数
 void MainWindow::on_pushButton_2_clicked()
 {
     ui->treeWidget->clear();
     qDebug() << ui->pushButton_2->isEnabled();
     MainWindow::folder_dir = QFileDialog::getExistingDirectory(this, "Please choose the \"dataset\" folder", QDir::homePath());
+    if(folder_dir == NULL) return;
     MainWindow::dir.setPath(folder_dir);  //将以QSting形式保存的文件名转换为QDir类型并存在public数据dir中
 
     //以下三句可以实现entryInfoList仅仅返回.csv文件的文件名,但是实际上dataset目录下也只有.csv文件，这是为了防止误操作
@@ -303,9 +561,17 @@ void MainWindow::csv_parser()
 {
     qDebug() << "worker thread : " << QThread::currentThreadId();
     ///连接之前建立的数据库
-    database = QSqlDatabase::addDatabase("QSQLITE", "csv-paser_connection");
-    database.setConnectOptions("QSQLITE_OPEN_URI;QSQLITE_ENABLE_SHARED_CACHE");
-    database.setDatabaseName("file::memory:");
+    if (QSqlDatabase::contains("csv-paser_connection"))
+        {
+            database = QSqlDatabase::database("csv-paser_connection");
+            qDebug() << "(QSqlDatabase::contains(csv-paser_connection))";
+        }
+    else
+    {
+        database = QSqlDatabase::addDatabase("QSQLITE", "csv-paser_connection");
+        database.setConnectOptions("QSQLITE_OPEN_URI;QSQLITE_ENABLE_SHARED_CACHE");
+        database.setDatabaseName("file::memory:");
+    }
     if (!database.open())
     {
         qDebug() << "Error: Failed to connect database in csv_parser thread" << database.lastError();
@@ -325,22 +591,171 @@ void MainWindow::csv_parser()
         qDebug() << "BEGIN!";
     QStringList list;
     QStringList file_chosen_name_list_copy = file_chosen_name_list;
-    sql.prepare(
-                "INSERT INTO  METRO_PASSENGERS(time, lineID, stationID, deviceID, status, userID, payType) "\
-                "VALUES (:Time,:LineID,:StationID,:DeviceID, :Status, :UserID, :PayType);"
-                );
+
+    QString query = "INSERT INTO  METRO_PASSENGERS(";
+    bool isFirst = true;
+    if(filter_time)
+    {
+        query = query + "time";
+        isFirst = false;
+    }
+    if(filter_lineID)
+    {
+        if(isFirst)
+        {
+             query = query + "lineID";
+             isFirst = false;
+        }
+        else
+             query = query + ", lineID";
+    }
+    if(filter_stationID)
+    {
+        if(isFirst)
+        {
+             query = query + "stationID";
+             isFirst = false;
+        }
+        else
+             query = query + ", stationID";
+    }
+    if(filter_deviceID)
+    {
+        if(isFirst)
+        {
+             query = query + "deviceID";
+             isFirst = false;
+        }
+        else
+             query = query + ", deviceID";
+    }
+    if(filter_status)
+    {
+        if(isFirst)
+        {
+             query = query + "status";
+             isFirst = false;
+        }
+        else
+            query = query + ", status";
+    }
+    if(filter_userID)
+    {
+
+        if(isFirst)
+        {
+             query = query + "userID";
+             isFirst = false;
+        }
+        else
+             query = query + ", userID";
+    }
+    if(filter_payType)
+    {
+        if(isFirst)
+        {
+             query = query + "payType";
+             isFirst = false;
+        }
+        else
+             query = query + ", payType";
+    }
+    query += ") VALUES (";
+    isFirst = true;
+    if(filter_time)
+    {
+        query = query + ":Time";
+        isFirst = false;
+    }
+    if(filter_lineID)
+    {
+        if(isFirst)
+        {
+             query = query + ":LineID";
+             isFirst = false;
+        }
+        else
+             query = query + ", :LineID";
+    }
+    if(filter_stationID)
+    {
+        if(isFirst)
+        {
+             query = query + ":StationID";
+             isFirst = false;
+        }
+        else
+             query = query + ", :StationID";
+    }
+    if(filter_deviceID)
+    {
+        if(isFirst)
+        {
+             query = query + ":DeviceID";
+             isFirst = false;
+        }
+        else
+             query = query + ", :DeviceID";
+    }
+    if(filter_status)
+    {
+        if(isFirst)
+        {
+             query = query + ":Status";
+             isFirst = false;
+        }
+        else
+            query = query + ", :Status";
+    }
+    if(filter_userID)
+    {
+
+        if(isFirst)
+        {
+             query = query + ":UserID";
+             isFirst = false;
+        }
+        else
+             query = query + ", :UserID";
+    }
+    if(filter_payType)
+    {
+        if(isFirst)
+        {
+             query = query + ":PayType";
+             isFirst = false;
+        }
+        else
+             query = query + ", :PayType";
+    }
+    query += ");";
+
+    sql.prepare(query);
+    qDebug() << "--------------------->" << query;
+    bool flag = true;
     for(int i = 0; i < file_chosen_name_list_copy.count(); i++)
     {
         emit(LoadingProcessChanged(i + 1, file_chosen_name_list_copy.count()));
         QFile file(file_chosen_name_list_copy.at(i));
         if(!file.open(QIODevice::ReadOnly | QIODevice::Text))
         {
-            qDebug() << "open failed!";
+            qDebug() << "------------------------->files opend failed!";
         }
         QTextStream in(&file);  //QTextStream读取数据
         //loading
         qDebug() << "file" << i << " loading....";
         in.readLine();
+
+        /*
+        qDebug()
+                << "filter_time" << filter_time
+                << "filter_lineID" << filter_lineID
+                << "filter_stationID" <<filter_stationID
+                << "filter_deviceID" << filter_deviceID
+                << "filter_status" << filter_status
+                << "filter_userID" << filter_userID
+                << "filter_payType" << filter_payType;
+        */
         while(!in.atEnd())
            {
               QString fileLine = in.readLine();  //从第一行读取至下一行
@@ -349,15 +764,23 @@ void MainWindow::csv_parser()
               for (i = 0; i < list.count(); i++)
                   qDebug() << list.at(i);
               */
-              sql.bindValue(":Time", list.at(0));   //绑定要插入的值
-              sql.bindValue(":LineID", list.at(1));
-              sql.bindValue(":StationID", list.at(2));
-              sql.bindValue(":DeviceID", list.at(3));
-              sql.bindValue(":Status", list.at(4));
-              sql.bindValue(":UserID", list.at(5));
-              sql.bindValue(":PayType", list.at(6));
-              sql.exec();
-              //qDebug() << sql.lastError();
+              if(filter_time) sql.bindValue(":Time", list.at(0));//qDebug() << "bind :Time to " << list.at(0);}
+              if(filter_lineID) sql.bindValue(":LineID", list.at(1)); //qDebug() << "bind :LineID to " << list.at(1);}
+              if(filter_stationID) sql.bindValue(":StationID", list.at(2)); //qDebug() << "bind :StationID to "<<  list.at(2);}
+              if(filter_deviceID) sql.bindValue(":DeviceID", list.at(3)); //qDebug() << "bind :DeviceID to " << list.at(3);}
+              if(filter_status) sql.bindValue(":Status", list.at(4)); //qDebug() << "bind :Status to " <<  list.at(4);}
+              if(filter_userID) sql.bindValue(":UserID", list.at(5));// qDebug() << "bind :UserID to " << list.at(5);}
+              if(filter_payType) sql.bindValue(":PayType", list.at(6)); //qDebug() << "bind :PayType to " << list.at(6);}
+
+              if(!sql.exec())
+              {
+                  if(flag == true)
+                  {
+                      emit(insertfailed());
+                      qDebug() << sql.lastError();
+                  }
+              }
+
            }
         file.close();
     }
@@ -396,11 +819,68 @@ void MainWindow::ChangeStatusBarWhileLoaingFile(int i, int j)
 {
     QString status = "loading file " + QString::number(i) + " / " +  QString::number(j) + " ....";
     ui->statusbar->showMessage(status);
+    int x = i / j * 100;
+    ui->progressBar->setValue(x);
 }
 
 void MainWindow::onLoadingFinished(double time)
 {
     QString status = "Finished in " + QString::number(time) + "s";
     ui->statusbar->showMessage(status);
-    qDebug() << "status Finished!";
+    ui->progressBar->hide();
+    ui->pushButton_3->setEnabled(true);
+    qDebug() << "status Finished!  & Progressbar hided!";
+}
+//run button
+void MainWindow::on_pushButton_3_clicked()
+{
+    times_of_button3_clicked += 1;
+    if(!database.isOpen())
+    {
+        if (!database.open())
+        {
+            qDebug() << "Error: Failed to connect database in tableview" << database.lastError();
+        }
+        else qDebug() << "opened successfully in tableview!";
+    }
+    else qDebug() << "opened successfully in tableview!";
+    model = new QSqlQueryModel();
+    QString query = ui->textEdit->toPlainText();
+    model->setQuery(query, database);
+    ui->tableView->setModel(model);
+    ui->tableView->show();
+    //while(model->canFetchMore()) model->fetchMore();
+}
+/*
+void MainWindow::on_droptable()
+{
+    if(!database.isOpen())
+    {
+        if (!database.open())
+        {
+            qDebug() << "Error: Failed to connect database in on_droptable" << database.lastError();
+        }
+        else qDebug() << "opened successfully in on_droptable!";
+    }
+    ui->textEdit->setText("DROP TABLE IF EXISTS METRO_PASSENGERS");
+    emit(pushbutton3());
+}
+
+void MainWindow::on_paser_finished()
+{
+    ui->textEdit->setText("SELECT * FROM METRO_PASSENGERS");
+    emit(pushbutton3());
+}
+*/
+void MainWindow::on_insertfailed()
+{
+    ui->progressBar->hide();
+    ui->statusbar->showMessage("Oooops! inserting failed PLEASE drop table METRO_PASSENGER explicity in \"SQL tab widgets\" ");
+}
+//若在改变文件树选择尚未点击load file则run无法执行
+void MainWindow::runsql_disable()
+{
+    ui->pushButton_3->setEnabled(false);\
+    ui->statusbar->showMessage("Please load newly chosen files first.");
+    qDebug() << "ui->pushButton_3 disabled!";
 }
