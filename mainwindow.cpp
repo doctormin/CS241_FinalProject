@@ -23,6 +23,7 @@ MainWindow::MainWindow(QWidget *parent)
     head->setSectionResizeMode(QHeaderView::ResizeToContents);
     ui->statusbar->addPermanentWidget(ui->progressBar);
     ui->pushButton_5->setEnabled(false);
+    chart = new QChart();
     //将"复选框被勾选"的信号与"更新父子选择状态"的槽函数关联起来
     connect(ui->treeWidget, SIGNAL(itemChanged(QTreeWidgetItem*, int)), this, SLOT(onTreeItemChanged(QTreeWidgetItem*, int)));
     //connect(this, SIGNAL(droptable()), this, SLOT(on_droptable()));
@@ -130,6 +131,7 @@ void MainWindow::on_pushButton_clicked()
     else qDebug() << "DROP SUCCESSFULY";
 
     QString creat_time      = "time       TEXT";
+    QString creat_timestamp = "timestamp  INT";
     QString creat_lineID    = "lineID     TEXT";
     QString creat_stationID = "stationID  INT";
     QString creat_deviceID  = "deviceID   INT";
@@ -137,13 +139,14 @@ void MainWindow::on_pushButton_clicked()
     QString creat_userID    = "userID     TEXT";
     QString creat_payType   = "payType    INT";
 
+
     QString query = "CREATE TABLE IF NOT EXISTS METRO_PASSENGERS (";
 
     bool isFirst = true;
 
     if(filter_time)
     {
-        query = query + creat_time;
+        query = query + creat_time + ", " + creat_timestamp;
         isFirst = false;
     }
     if(filter_lineID)
@@ -284,6 +287,9 @@ void MainWindow::AddRoot(QTreeWidgetItem *parent, QString name)
     itm->setText(2, " ");
     //添加复选框 并初始化为checked
     itm->setCheckState(0, Qt::Checked);
+    if(name == "load time") itm->setDisabled(true);
+    if(name == "load stationID") itm->setDisabled(true);
+    if(name == "load status") itm->setDisabled(true);
     parent->addChild(itm);
 }
 //AddChild实现文件树子节点的添加（即.csv文件条目）
@@ -597,7 +603,7 @@ void MainWindow::csv_parser()
     bool isFirst = true;
     if(filter_time)
     {
-        query = query + "time";
+        query = query + "time, timestamp";
         isFirst = false;
     }
     if(filter_lineID)
@@ -665,7 +671,7 @@ void MainWindow::csv_parser()
     isFirst = true;
     if(filter_time)
     {
-        query = query + ":Time";
+        query = query + ":Time, :Timestamp";
         isFirst = false;
     }
     if(filter_lineID)
@@ -734,6 +740,7 @@ void MainWindow::csv_parser()
     sql.prepare(query);
     qDebug() << "--------------------->" << query;
     bool flag = true;
+    QDateTime tmp;
     for(int i = 0; i < file_chosen_name_list_copy.count(); i++)
     {
         emit(LoadingProcessChanged(i + 1, file_chosen_name_list_copy.count()));
@@ -765,7 +772,14 @@ void MainWindow::csv_parser()
               for (i = 0; i < list.count(); i++)
                   qDebug() << list.at(i);
               */
-              if(filter_time) sql.bindValue(":Time", list.at(0));//qDebug() << "bind :Time to " << list.at(0);}
+              if(filter_time)
+              {
+                  sql.bindValue(":Time", list.at(0));
+                  //qDebug() << list.at(0);
+                  tmp = QDateTime::fromString(list.at(0), "yyyy-MM-dd hh:mm:ss");
+                  //qDebug() << tmp;
+                  sql.bindValue(":Timestamp",tmp.toUTC().toTime_t());
+              }
               if(filter_lineID) sql.bindValue(":LineID", list.at(1)); //qDebug() << "bind :LineID to " << list.at(1);}
               if(filter_stationID) sql.bindValue(":StationID", list.at(2)); //qDebug() << "bind :StationID to "<<  list.at(2);}
               if(filter_deviceID) sql.bindValue(":DeviceID", list.at(3)); //qDebug() << "bind :DeviceID to " << list.at(3);}
@@ -830,9 +844,12 @@ void MainWindow::onLoadingFinished(double time)
     ui->statusbar->showMessage(status);
     ui->progressBar->hide();
     ui->pushButton_3->setEnabled(true);
+    ui->pushButton_6->setEnabled(true);
+    ui->lineEdit_3->setEnabled(true);
+    ui->lineEdit_3->setValidator(new QIntValidator(0, 81, this));
     qDebug() << "status Finished!  & Progressbar hided!";
 }
-//run button
+//SQL tab 中的run botton
 void MainWindow::on_pushButton_3_clicked()
 {
     times_of_button3_clicked += 1;
@@ -848,6 +865,8 @@ void MainWindow::on_pushButton_3_clicked()
     model = new QSqlQueryModel();
     QString query = ui->textEdit->toPlainText();
     model->setQuery(query, database);
+    ///在statusbar上显示代码运行结果
+    ui->statusbar->showMessage(model->lastError().databaseText(), 100000);
     ui->tableView->setModel(model);
     ui->tableView->show();
     //while(model->canFetchMore()) model->fetchMore();
@@ -925,5 +944,16 @@ void MainWindow::on_pushButton_4_clicked()
 //Get the Plan
 void MainWindow::on_pushButton_5_clicked()
 {
+
+}
+//plot!
+void MainWindow::on_pushButton_6_clicked()
+{
+   QDateTime start_time = ui->dateTimeEdit_3->dateTime();
+   QDateTime end_time = ui->dateTimeEdit_5->dateTime();
+   QString start = start_time.toString("yyyy-MM-dd hh:mm:ss");
+   QString end = start_time.toString("yyyy-MM-dd hh:mm:ss");
+   qDebug() << "start : " << start;
+   qDebug() << "end : " << end;
 
 }

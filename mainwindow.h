@@ -22,7 +22,9 @@
 #include <QFuture>
 #include <QTableView>
 #include <QSqlQueryModel>
-
+#include <QtCharts>
+#include <QDateTimeEdit>
+QT_CHARTS_USE_NAMESPACE
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -55,7 +57,7 @@ private:
     bool filter_status;
     bool filter_userID;
     bool filter_payType;
-
+    QChart* chart;
     QList<QFileInfo> list;//dataset下所有文件的信息
     QStringList file_chosen_name_list;//储存所有被勾选的文件的文件名
     QSqlDatabase database;  //储存信息的数据库
@@ -87,6 +89,8 @@ private slots:
     void on_pushButton_4_clicked();
 
     void on_pushButton_5_clicked();
+
+    void on_pushButton_6_clicked();
 
 private:
     Ui::MainWindow *ui;
