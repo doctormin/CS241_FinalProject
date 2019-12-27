@@ -60,6 +60,7 @@ private:
     QChart* chart;
     QList<QFileInfo> list;//dataset下所有文件的信息
     QStringList file_chosen_name_list;//储存所有被勾选的文件的文件名
+    QStringList days_chosen_list; //储存所有被勾选的日期
     QSqlDatabase database;  //储存信息的数据库
     QTime *time = new QTime();
 public:
@@ -67,10 +68,11 @@ public:
     ~MainWindow();
 signals:
     void choose_finished();
-    void fileloadingFinished(double time);
+    void fileloadingFinished(double time1, double time2);
     void LoadingProcessChanged(int, int);
     void droptable();
     void insertfailed();
+    void building_index_of_sql(double time); //建立索引
     //void pushbutton3();
 
 private slots:
@@ -82,7 +84,7 @@ private slots:
     void runsql_disable();
     void ChangeStatusBarWhileLoaingFile(int, int);
     void onTreeItemChanged(QTreeWidgetItem * item, int column);
-    void onLoadingFinished(double time);
+    void onLoadingFinished(double time1, double time2);
     void on_pushButton_3_clicked();
     void on_insertfailed();
 
@@ -91,6 +93,8 @@ private slots:
     void on_pushButton_5_clicked();
 
     void on_pushButton_6_clicked();
+
+    void on_building_index_of_sql(double time);
 
 private:
     Ui::MainWindow *ui;

@@ -30,11 +30,12 @@ MainWindow::MainWindow(QWidget *parent)
     // connect(this, SIGNAL(pushbutton3()), this, SLOT(on_pushButton_3_clicked()));
     connect(this, SIGNAL(choose_finished()), this, SLOT(loadfile_enable()));
     connect(ui->treeWidget, SIGNAL(itemChanged(QTreeWidgetItem*, int)), this, SLOT(runsql_disable()));
-    connect(this, SIGNAL(fileloadingFinished(double)), this, SLOT(onLoadingFinished(double)));
-    connect(this, SIGNAL(fileloadingFinished(double)), this, SLOT(loadfile_enable()));
+    connect(this, SIGNAL(fileloadingFinished(double, double)), this, SLOT(onLoadingFinished(double, double)));
+    connect(this, SIGNAL(fileloadingFinished(double, double)), this, SLOT(loadfile_enable()));
     connect(this, SIGNAL(insertfailed()), this, SLOT(on_insertfailed()));
     connect(this, SIGNAL(LoadingProcessChanged(int, int)), this, SLOT(ChangeStatusBarWhileLoaingFile(int, int)));
     //connect(this, SIGNAL(fileloadingFinished(double)), this, SLOT(on_paser_finished()));
+    connect(this, SIGNAL(building_index_of_sql(double)), this, SLOT(on_building_index_of_sql(double)));
     //以下代码初始化了数据库连接
     if (QSqlDatabase::contains("qt_sql_default_connection"))
     {
@@ -221,7 +222,7 @@ void MainWindow::on_pushButton_clicked()
             << "filter_payType" << filter_payType;
     */
     query += ");";
-    qDebug() << "+++++++++++++++++++++++++++++++++++++++++++++" << query;
+    //sqDebug() << "+++++++++++++++++++++++++++++++++++++++++++++" << query;
 
     if(sql.prepare(query))
         qDebug() << "creating table query prepared!";
@@ -583,13 +584,10 @@ void MainWindow::csv_parser()
     {
         qDebug() << "Error: Failed to connect database in csv_parser thread" << database.lastError();
     }
-    else qDebug() << "opened successfully in csv_parser thread!";
+    else qDebug() << "database opened successfully in csv_parser thread!";
     //开启事务
     QSqlQuery sql(database);
-    if(sql.prepare("BEGIN;"))
-        qDebug() << "BEGIN query prepared!";
-    else qDebug() << "BEGIN query not prepared!";
-
+    sql.prepare("BEGIN;");
     if(!sql.exec())
     {
         qDebug() << "Error: Fail to BEGIN." << sql.lastError();
@@ -738,7 +736,7 @@ void MainWindow::csv_parser()
     query += ");";
 
     sql.prepare(query);
-    qDebug() << "--------------------->" << query;
+    //qDebug() << "--------------------->" << query;
     bool flag = true;
     QDateTime tmp;
     for(int i = 0; i < file_chosen_name_list_copy.count(); i++)
@@ -799,6 +797,17 @@ void MainWindow::csv_parser()
            }
         file.close();
     }
+    //建立索引
+    double Time1 = time->restart()/1000.0;
+    emit(building_index_of_sql(Time1));
+    QString buildingIndex = "CREATE INDEX my_index on METRO_PASSENGERS (time, stationID, status)";
+    if(filter_lineID) buildingIndex = "CREATE INDEX my_index on METRO_PASSENGERS (time, stationID, status, lineID)";
+    sql.prepare(buildingIndex);
+    if(!sql.exec())
+    {
+        qDebug() << "Error: Fail to BUILDING INDEX." << sql.lastError();
+    }
+    else qDebug() << "Building index finished!";
     //COMMIT
     if(sql.prepare("COMMIT;"))
         qDebug() << "COMMIT query prepared!";
@@ -818,18 +827,16 @@ void MainWindow::csv_parser()
         qDebug() << sql.value(0);
     }
     */
-    double Time = time->restart()/1000.0;
-    qDebug() << "time is " << Time;
-    emit(fileloadingFinished(Time));
+    double Time2 = time->restart()/1000.0;
+    emit(fileloadingFinished(Time1, Time2));
+
     database.close();
 }
-
 void MainWindow::loadfile_enable()
 {
     ui->pushButton->setEnabled(true);
     qDebug() << "ui->pushButton enabled!";
 }
-
 void MainWindow::ChangeStatusBarWhileLoaingFile(int i, int j)
 {
     QString status = "loading file " + QString::number(i) + " / " +  QString::number(j) + " ....";
@@ -837,10 +844,15 @@ void MainWindow::ChangeStatusBarWhileLoaingFile(int i, int j)
     double x = double(i) / j * 100;
     ui->progressBar->setValue(x);
 }
-
-void MainWindow::onLoadingFinished(double time)
+void MainWindow::onLoadingFinished(double time1, double time2)
 {
-    QString status = "Finished in " + QString::number(time) + "s";
+    QString status = "Loading files finished in " + QString::number(time1) + "s " +
+                     "  Building indexes finished in " + QString::number(time2) + "s";
+
+    for(int i  = 0; i < file_chosen_name_list.count(); i++)
+    {
+
+    }
     ui->statusbar->showMessage(status);
     ui->progressBar->hide();
     ui->pushButton_3->setEnabled(true);
@@ -848,6 +860,32 @@ void MainWindow::onLoadingFinished(double time)
     ui->lineEdit_3->setEnabled(true);
     ui->lineEdit_3->setValidator(new QIntValidator(0, 81, this));
     qDebug() << "status Finished!  & Progressbar hided!";
+    QTreeWidgetItemIterator iterator(ui->treeWidget);
+    ui->comboBox->clear();
+    while(*iterator)
+    {
+        if(
+              (
+                    ((*iterator)->text(0) == "2019.1.13")
+                 || ((*iterator)->text(0) == "2019.1.12")
+                 || ((*iterator)->text(0) == "2019.1.11")
+                 || ((*iterator)->text(0) == "2019.1.10")
+                 || ((*iterator)->text(0) == "2019.1.09")
+                 || ((*iterator)->text(0) == "2019.1.08")
+                 || ((*iterator)->text(0) == "2019.1.07")
+
+               ) &&
+               (
+                ((*iterator)->checkState(0) == Qt::Checked) || ((*iterator)->checkState(0) == Qt::PartiallyChecked)
+               )
+          )
+        {
+            days_chosen_list << ((*iterator)->text(0));
+        }
+        ++iterator;
+    }
+    for (int i = 0; i < days_chosen_list.count(); i++)
+        ui->comboBox->addItem(days_chosen_list.at(i));
 }
 //SQL tab 中的run botton
 void MainWindow::on_pushButton_3_clicked()
@@ -949,11 +987,13 @@ void MainWindow::on_pushButton_5_clicked()
 //plot!
 void MainWindow::on_pushButton_6_clicked()
 {
-   QDateTime start_time = ui->dateTimeEdit_3->dateTime();
-   QDateTime end_time = ui->dateTimeEdit_5->dateTime();
-   QString start = start_time.toString("yyyy-MM-dd hh:mm:ss");
-   QString end = start_time.toString("yyyy-MM-dd hh:mm:ss");
-   qDebug() << "start : " << start;
-   qDebug() << "end : " << end;
 
+
+}
+//
+void MainWindow::on_building_index_of_sql(double time)
+{
+    QString message;
+    message = "File loading finished in " +  QString::number(time) + "s ----> Building the index of sql now...";
+    ui->statusbar->showMessage(message);
 }
