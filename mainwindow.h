@@ -18,12 +18,14 @@
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QSqlRecord>
 #include <QtConcurrent>
 #include <QFuture>
 #include <QTableView>
 #include <QSqlQueryModel>
 #include <QtCharts>
 #include <QDateTimeEdit>
+#include <QMessageBox>
 QT_CHARTS_USE_NAMESPACE
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -44,8 +46,10 @@ public:
     void removeListSame(QStringList &list); //并不需要它
     void csv_parser();
 
+
 private:
     QDir dir; //储存dataset文件夹的路径
+    long long MAX;
     QString folder_dir; //储存dataset文件夹的路径
     QSqlQueryModel *model;
     int times_of_button3_clicked;
@@ -57,7 +61,6 @@ private:
     bool filter_status;
     bool filter_userID;
     bool filter_payType;
-    QChart* chart;
     QList<QFileInfo> list;//dataset下所有文件的信息
     QStringList file_chosen_name_list;//储存所有被勾选的文件的文件名
     QStringList days_chosen_list; //储存所有被勾选的日期
@@ -73,7 +76,11 @@ signals:
     void droptable();
     void insertfailed();
     void building_index_of_sql(double time); //建立索引
+    void OutFlowpoint(long long, long long, bool);
     //void pushbutton3();
+    void plot_finished();
+    void payType_plot_finished(int, int, int, int);
+
 
 private slots:
     void on_pushButton_clicked();
@@ -87,16 +94,23 @@ private slots:
     void onLoadingFinished(double time1, double time2);
     void on_pushButton_3_clicked();
     void on_insertfailed();
-
     void on_pushButton_4_clicked();
-
     void on_pushButton_5_clicked();
-
     void on_pushButton_6_clicked();
-
     void on_building_index_of_sql(double time);
+    void plot(long long ,long long, bool);
+    void on_plot_finished();
+    void on_checkBox_stateChanged(int arg1);
+    void on_payType_plot_finished(int, int, int, int);
+
+    void on_Type_of_analyze_activated(const QString &arg1);
 
 private:
     Ui::MainWindow *ui;
+    QChart* chart;
+    QSplineSeries *series;
+    QSplineSeries *series_in;
+    QPieSeries *payType_series;
+
 };
 #endif // MAINWINDOW_H
