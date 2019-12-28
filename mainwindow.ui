@@ -161,7 +161,7 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="tab_Filter">
+      <widget class="QWidget" name="tab_SQL">
        <attribute name="icon">
         <iconset resource="resources.qrc">
          <normaloff>:/icons/icons/040-polar lights.png</normaloff>:/icons/icons/040-polar lights.png</iconset>
@@ -247,7 +247,7 @@ p, li { white-space: pre-wrap; }
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="tab_Analize">
+      <widget class="QWidget" name="tab_Plot">
        <attribute name="icon">
         <iconset resource="resources.qrc">
          <normaloff>:/icons/icons/049-forest.png</normaloff>:/icons/icons/049-forest.png</iconset>
@@ -486,40 +486,6 @@ p, li { white-space: pre-wrap; }
               </property>
              </widget>
             </item>
-            <item row="16" column="0">
-             <widget class="QLineEdit" name="mins_edit">
-              <property name="enabled">
-               <bool>true</bool>
-              </property>
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>120</width>
-                <height>50</height>
-               </size>
-              </property>
-              <property name="baseSize">
-               <size>
-                <width>40</width>
-                <height>35</height>
-               </size>
-              </property>
-              <property name="font">
-               <font>
-                <family>Eras Bold ITC</family>
-                <pointsize>15</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>30</string>
-              </property>
-             </widget>
-            </item>
             <item row="15" column="1">
              <widget class="Line" name="line_6">
               <property name="orientation">
@@ -531,40 +497,6 @@ p, li { white-space: pre-wrap; }
              <widget class="Line" name="line_12">
               <property name="orientation">
                <enum>Qt::Horizontal</enum>
-              </property>
-             </widget>
-            </item>
-            <item row="14" column="0">
-             <widget class="QLineEdit" name="hours_edit">
-              <property name="enabled">
-               <bool>true</bool>
-              </property>
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>120</width>
-                <height>50</height>
-               </size>
-              </property>
-              <property name="baseSize">
-               <size>
-                <width>40</width>
-                <height>35</height>
-               </size>
-              </property>
-              <property name="font">
-               <font>
-                <family>Eras Bold ITC</family>
-                <pointsize>15</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>0</string>
               </property>
              </widget>
             </item>
@@ -719,6 +651,20 @@ p, li { white-space: pre-wrap; }
                 <family>Eras Light ITC</family>
                 <pointsize>11</pointsize>
                </font>
+              </property>
+             </widget>
+            </item>
+            <item row="14" column="0">
+             <widget class="QSpinBox" name="hours_edit">
+              <property name="maximum">
+               <number>24</number>
+              </property>
+             </widget>
+            </item>
+            <item row="16" column="0">
+             <widget class="QSpinBox" name="mins_edit">
+              <property name="maximum">
+               <number>60</number>
               </property>
              </widget>
             </item>

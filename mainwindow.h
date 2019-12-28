@@ -80,7 +80,7 @@ signals:
     //void pushbutton3();
     void plot_finished();
     void payType_plot_finished(int, int, int, int);
-
+    void pushbutton3();
 
 private slots:
     void on_pushButton_clicked();

@@ -35,7 +35,7 @@ MainWindow::MainWindow(QWidget *parent)
     //将"复选框被勾选"的信号与"更新父子选择状态"的槽函数关联起来
     connect(ui->treeWidget, SIGNAL(itemChanged(QTreeWidgetItem*, int)), this, SLOT(onTreeItemChanged(QTreeWidgetItem*, int)));
     //connect(this, SIGNAL(droptable()), this, SLOT(on_droptable()));
-    // connect(this, SIGNAL(pushbutton3()), this, SLOT(on_pushButton_3_clicked()));
+    connect(this, SIGNAL(pushbutton3()), this, SLOT(on_pushButton_3_clicked()));
     connect(this, SIGNAL(choose_finished()), this, SLOT(loadfile_enable()));
     connect(ui->treeWidget, SIGNAL(itemChanged(QTreeWidgetItem*, int)), this, SLOT(runsql_disable()));
     connect(this, SIGNAL(fileloadingFinished(double, double)), this, SLOT(onLoadingFinished(double, double)));
@@ -907,8 +907,10 @@ void MainWindow::onLoadingFinished(double time1, double time2)
     ui->Type_of_analyze->clear();
     ui->Type_of_analyze->addItem("Inflow & Outflow");
     if(filter_payType) ui->Type_of_analyze->addItem("PayType Composition");
+    emit(pushbutton3());
+    ui->tabWidget->setCurrentWidget(ui->tab_SQL);
 }
-//SQL tab 中的run botton
+//SQL tab 中的run button
 void MainWindow::on_pushButton_3_clicked()
 {
     times_of_button3_clicked += 1;
@@ -1008,9 +1010,15 @@ void MainWindow::on_pushButton_5_clicked()
 //plot!
 void MainWindow::on_pushButton_6_clicked()
 {
-    if(ui->Type_of_analyze->currentText() == "Inflow & Outflow" && (ui->hours_edit->text() == "" || ui->hours_edit->text() == ""))
+    if(ui->Type_of_analyze->currentText() == "Inflow & Outflow" && (ui->hours_edit->text() == "" || ui->mins_edit->text() == ""))
     {
-        QMessageBox::information(this, "Ooops", "Please type in the time step");
+        QMessageBox::information(this, "Ooops", "Please type in \"time step\"");
+        return;
+    }
+    // mins == 0 && hours == 0
+    if(ui->Type_of_analyze->currentText() == "Inflow & Outflow" && ui->hours_edit->text() == "0" &&  ui->hours_edit->text() =="0")
+    {
+        QMessageBox::information(this, "Ooops", "Time Step can't be 0");
         return;
     }
     ui->pushButton_6->setEnabled(false);
