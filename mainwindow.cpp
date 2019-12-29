@@ -1,5 +1,4 @@
 #include "mainwindow.h"
-#include "worker1.h"
 #include "ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -20,7 +19,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->progressBar->hide();
     ui->treeWidget->setColumnCount(3);
     ui->treeWidget->setHeaderLabels(QStringList() << "Name " << "Size" << "Type");
-    ui->checkBox->setCheckState(Qt::Checked);
+    ui->checkBox->setCheckState(Qt::Unchecked);
+    ui->checkBox_2->setCheckState(Qt::Unchecked);
     QHeaderView *head=ui->treeWidget->header();
     head->setSectionResizeMode(QHeaderView::ResizeToContents);
     ui->statusbar->addPermanentWidget(ui->progressBar);
@@ -47,7 +47,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(this, SIGNAL(OutFlowpoint(long long, long long, bool)), this, SLOT(plot(long long, long long, bool)));
     connect(this, SIGNAL(plot_finished()), this, SLOT(on_plot_finished()));
     connect(this, SIGNAL(payType_plot_finished(int, int, int, int)), this, SLOT(on_payType_plot_finished(int, int, int, int)));
-
+    connect(this, SIGNAL(OutFlowpoint_diffline(long long, long long, bool)), this, SLOT(on_OutFlowpoint_diffline(long long, long long, bool)));
+    connect(this, SIGNAL(OutFlow_diffline_finished(bool)), this, SLOT(on_OutFlow_diffline_finished(bool)));
     //以下代码初始化了数据库连接
     if (QSqlDatabase::contains("qt_sql_default_connection"))
     {
@@ -70,17 +71,6 @@ MainWindow::MainWindow(QWidget *parent)
     {
         qDebug() << "opened successfully in main thread!";
     }
-
-    //以下代码实现线程的创建
-    QThread* t1 = new QThread;
-    worker1* w1 = new worker1();
-    w1->moveToThread(t1);
-    connect(w1, SIGNAL (error(QString)), this, SLOT (errorString(QString)));
-    connect(t1, SIGNAL (started()), w1, SLOT (run()));
-    connect(w1, SIGNAL (finished()), t1, SLOT (quit()));
-    connect(w1, SIGNAL (finished()), w1, SLOT (deleteLater()));
-    connect(t1, SIGNAL (finished()), t1, SLOT (deleteLater()));
-    t1->start();
 }
 
 MainWindow::~MainWindow()
@@ -813,7 +803,7 @@ void MainWindow::csv_parser()
     double Time1 = time->restart()/1000.0;
     emit(building_index_of_sql(Time1));
     QString buildingIndex = "CREATE INDEX my_index on METRO_PASSENGERS (timestamp, stationID, status)";
-    if(filter_lineID) buildingIndex = "CREATE INDEX my_index on METRO_PASSENGERS (timestamp, stationID, status, lineID, status)";
+    if(filter_lineID) buildingIndex = "CREATE INDEX my_index on METRO_PASSENGERS (timestamp, stationID, status, lineID)";
     sql.prepare(buildingIndex);
     if(!sql.exec())
     {
@@ -869,7 +859,9 @@ void MainWindow::onLoadingFinished(double time1, double time2)
     ui->progressBar->hide();
     ui->pushButton_3->setEnabled(true);
     ui->pushButton_6->setEnabled(true);
-
+    ui->comboBox->addItem("Line A");
+    ui->comboBox->addItem("Line B");
+    ui->comboBox->addItem("Line C");
     QRegExp range("[1-7][0-9]|80|[0-9]");
     ui->lineEdit_3->setValidator(new QRegExpValidator(range, this));
     /*QIntValidator* IntValidator = new QIntValidator;
@@ -907,6 +899,14 @@ void MainWindow::onLoadingFinished(double time1, double time2)
     ui->Type_of_analyze->clear();
     ui->Type_of_analyze->addItem("Inflow & Outflow");
     if(filter_payType) ui->Type_of_analyze->addItem("PayType Composition");
+    if(filter_lineID)
+    {
+         ui->Type_of_analyze->addItem("Inflow in Different Line");
+         ui->Type_of_analyze->addItem("Outflow in Different Line");
+         ui->checkBox_2->setEnabled(true);
+         ui->comboBox->setEnabled(true);
+    }
+
     emit(pushbutton3());
     ui->tabWidget->setCurrentWidget(ui->tab_SQL);
 }
@@ -930,7 +930,6 @@ void MainWindow::on_pushButton_3_clicked()
     ui->statusbar->showMessage(model->lastError().databaseText(), 100000);
     ui->tableView->setModel(model);
     ui->tableView->show();
-    //while(model->canFetchMore()) model->fetchMore();
 }
 /*
 void MainWindow::on_droptable()
@@ -1005,41 +1004,94 @@ void MainWindow::on_pushButton_4_clicked()
 //Get the Plan
 void MainWindow::on_pushButton_5_clicked()
 {
+    //读取出入站点
+    QString des = ui->lineEdit_2->text();
+    QString home = ui->lineEdit->text();
+    int des_ID = des.toInt();
+    int home_ID = home.toInt();
+    if(home_ID > 80 || des_ID > 80)
+    {
+        QMessageBox::critical(this, "Ooops", "0 <= stationID <= 80");
+        return;
+    }
+    int distance[81];
+    for (int i=0; i<81; ++i) distance[i]=-1;
+    int prev[81] = {0};
+    distance[home_ID] = 0;
+    QQueue<int> q;
+    q.enqueue(home_ID);
+    while (!q.empty())
+    {
+        int current = q.dequeue();
+        if (current == des_ID) break;
+        for(int i=0; i<81; ++i)
+        {
+            if(matrix[current][i]==1 && distance[i]==-1)
+            {
+                distance[i] = distance[current]+1;
+                prev[i] = current;
+                q.enqueue(i);
+            }
+        }
+    }
+    //生成最短路径
+    int *route = new int[distance[des_ID]+1];
+    int current = des_ID;
+    int i = distance[des_ID];
+    while(i>0)
+    {
+        route[i] = current;
+        current = prev[current];
+        --i;
+    }
+    route[0] = current;
+
+    QString Route;
+    Route += QString::number(home_ID);
+    for (int i=1; i<=distance[des_ID]; ++i)
+    {
+       Route += " -> ";
+       Route += QString::number(route[i]);
+    }
+
+    ui->textEdit_2->setText(Route);
+    delete [] route;
 
 }
 //plot!
 void MainWindow::on_pushButton_6_clicked()
 {
-    if(ui->Type_of_analyze->currentText() == "Inflow & Outflow" && (ui->hours_edit->text() == "" || ui->mins_edit->text() == ""))
+    if(ui->Type_of_analyze->currentText() == "Inflow & Outflow" && (ui->mins_edit->text() == "" || ui->hours_edit->text() == ""))
     {
         QMessageBox::information(this, "Ooops", "Please type in \"time step\"");
         return;
     }
     // mins == 0 && hours == 0
-    if(ui->Type_of_analyze->currentText() == "Inflow & Outflow" && ui->hours_edit->text() == "0" &&  ui->hours_edit->text() =="0")
+    if(ui->Type_of_analyze->currentText() == "Inflow & Outflow" && ui->mins_edit->text() == "0" &&  ui->hours_edit->text() =="0")
     {
         QMessageBox::information(this, "Ooops", "Time Step can't be 0");
         return;
     }
     ui->pushButton_6->setEnabled(false);
     bool allStation = false;
+    bool allLineID = false;
     int stationID = ui->lineEdit_3->text().toInt();
     QString Type_of_analyze = ui->Type_of_analyze->currentText();
     QString date = ui->date->currentText();
     QString start_time = ui->start_time_edit->text();
     QString end_time =  ui->end_time_edit->text();
     QString start_date_time = date + " " + start_time + ":00";
-    qDebug() <<"start_date_time =" << start_date_time;
+    //qDebug() <<"start_date_time =" << start_date_time;
     QString end_date_time = date + " " + end_time + ":59";
-    qDebug() <<"end_date_time =" << end_date_time;
+    //qDebug() <<"end_date_time =" << end_date_time;
     QDateTime start_tmp = QDateTime::fromString(start_date_time, "yyyy-MM-dd hh:mm:ss");
-    qDebug() << "start_tmp = " << start_tmp;
+    //qDebug() << "start_tmp = " << start_tmp;
     QDateTime end_tmp = QDateTime::fromString(end_date_time, "yyyy-MM-dd hh:mm:ss");
-    qDebug() << "end_tmp = " << end_tmp;
+    //qDebug() << "end_tmp = " << end_tmp;
     auto start_timestamp = start_tmp.toUTC().toSecsSinceEpoch();
-    qDebug() << "start_timestamp = " << start_timestamp;
+    //qDebug() << "start_timestamp = " << start_timestamp;
     auto end_timestamp = end_tmp.toUTC().toSecsSinceEpoch();
-    qDebug() << "end_timestamp = " << end_timestamp;
+    //qDebug() << "end_timestamp = " << end_timestamp;
 
     if(start_timestamp >= end_timestamp)
     {
@@ -1060,16 +1112,26 @@ void MainWindow::on_pushButton_6_clicked()
         QMessageBox::warning(this, "waring", "Erro: time step > (Ending time - Starting time) !!");
         return;
     }
-
-    qDebug() << start_timestamp;
-    qDebug() << end_timestamp;
-    qDebug() << stationID;
-    qDebug() << interval;
-    qDebug() << "main thread : " << QThread::currentThreadId();
     if(ui->checkBox->checkState() == Qt::Checked)
     {
         allStation = true;
     }
+    if(ui->checkBox_2->checkState() == Qt::Checked)
+    {
+        allLineID = true;
+    }
+
+    QString lineID_chosen;
+    if(filter_lineID)
+    {
+        if(ui->comboBox->currentText() == "Line A")
+            lineID_chosen = "A";
+        if(ui->comboBox->currentText() == "Line B")
+            lineID_chosen = "B";
+        if(ui->comboBox->currentText() == "Line C")
+            lineID_chosen = "C";
+    }
+
     //analyzing on "Inflow & Outflow"
     auto lambda1 = [=] () -> void
     {
@@ -1227,7 +1289,7 @@ void MainWindow::on_pushButton_6_clicked()
             }
         else
         {
-            database = QSqlDatabase::addDatabase("QSQLITE", "lambda1_connection");
+            database = QSqlDatabase::addDatabase("QSQLITE", "lambda3_connection");
             database.setConnectOptions("QSQLITE_OPEN_URI;QSQLITE_ENABLE_SHARED_CACHE");
             database.setDatabaseName("file::memory:");
         }
@@ -1236,6 +1298,120 @@ void MainWindow::on_pushButton_6_clicked()
             qDebug() << "Error: Failed to connect database in lambda3 thread" << database.lastError();
         }
         else qDebug() << "database opened successfully in lambda3 thread!";
+        QString query = "select * from METRO_PASSENGERS where timestamp >= :startTime and timestamp <= :endTime ";
+        QSqlQuery sql(database);
+        if(!allStation)
+        {
+            if(!allLineID)
+            {
+                query += "and stationID = :StationID and status = :Status and lineID = :LineID;";
+                sql.prepare(query);
+                sql.bindValue(":StationID", stationID);
+                sql.bindValue(":LineID", lineID_chosen);
+            }
+            else
+            {
+                query += "and stationID = :StationID and status = :Status";
+                sql.prepare(query);
+                sql.bindValue(":StationID", lineID_chosen);
+            }
+        }
+        else
+        {
+            query += "and status = :Status and lineID = :LineID;";
+            sql.prepare(query);
+            sql.bindValue(":LineID", lineID_chosen);
+        }
+        int numberOfRows = 0;
+        for (qint64 i = start_timestamp; i + interval <= end_timestamp; i += interval)
+        {
+            sql.bindValue(":startTime", i);
+            sql.bindValue(":endTime", i + interval);
+            //Outflow:
+            sql.bindValue(":Status", 0);
+            if(!sql.exec()) qDebug() << "Outflow select failed";
+
+            if(sql.last())
+            {
+                numberOfRows =  sql.at() + 1;
+                sql.first();
+                sql.previous();
+            }
+            /*qDebug() << "SELECT * FROM METRO_PASSENGERS WHERE timestamp >= " << i << " AND timestamp <= " << i + interval <<
+                        " AND stationID = " << stationID << "and status = " << 0 <<";";*/
+            emit(OutFlowpoint_diffline(i+interval/2, numberOfRows, true));
+        }
+        emit(OutFlow_diffline_finished(true));
+        database.close();
+    };
+    auto lambda4 = [=] () -> void
+    {
+        ///连接之前建立的数据库
+        if (QSqlDatabase::contains("lambda4_connection"))
+            {
+                database = QSqlDatabase::database("lambda4_connection");
+                qDebug() << "(QSqlDatabase::contains(lambda4_connection))";
+            }
+        else
+        {
+            database = QSqlDatabase::addDatabase("QSQLITE", "lambda4_connection");
+            database.setConnectOptions("QSQLITE_OPEN_URI;QSQLITE_ENABLE_SHARED_CACHE");
+            database.setDatabaseName("file::memory:");
+        }
+        if (!database.open())
+        {
+            qDebug() << "Error: Failed to connect database in lambda4 thread" << database.lastError();
+        }
+        else qDebug() << "database opened successfully in lambda4 thread!";
+        QString query = "select * from METRO_PASSENGERS where timestamp >= :startTime and timestamp <= :endTime ";
+        QSqlQuery sql(database);
+        if(!allStation)
+        {
+            if(!allLineID)
+            {
+                query += "and stationID = :StationID and status = :Status and lineID = :LineID;";
+                sql.prepare(query);
+                sql.bindValue(":StationID", stationID);
+                sql.bindValue(":LineID", lineID_chosen);
+            }
+            else
+            {
+                query += "and stationID = :StationID and status = :Status";
+                sql.prepare(query);
+                sql.bindValue(":StationID", stationID);
+            }
+        }
+        else
+        {
+            query += "and status = :Status and lineID = :LineID;";
+            sql.prepare(query);
+            sql.bindValue(":LineID", lineID_chosen);
+        }
+        int numberOfRows = 0;
+        for (qint64 i = start_timestamp; i + interval <= end_timestamp; i += interval)
+        {
+            sql.bindValue(":startTime", i);
+            sql.bindValue(":endTime", i + interval);
+            //Inflow:
+            sql.bindValue(":Status", 1);
+            //qDebug()   << query;
+            if(!sql.exec()) qDebug() << "Inflow select failed";
+
+            if(sql.last())
+            {
+                numberOfRows =  sql.at() + 1;
+                sql.first();
+                sql.previous();
+            }
+            /*qDebug() << query;
+            qDebug() << "SELECT * FROM METRO_PASSENGERS WHERE timestamp >= " << i << " AND timestamp <= " << i + interval <<
+                        " AND stationID = " << stationID << "and status = " << 1 <<"and lineID = " << lineID_chosen <<";";
+            qDebug() << "(" << i + interval/2 << ", " << numberOfRows << ")";
+            */
+            emit(OutFlowpoint_diffline(i+interval/2, numberOfRows, false));
+        }
+        emit(OutFlow_diffline_finished(false));
+        database.close();
     };
     if(Type_of_analyze == "Inflow & Outflow")
     {
@@ -1249,7 +1425,6 @@ void MainWindow::on_pushButton_6_clicked()
          series_in = new QSplineSeries();
          QFuture<void> future = QtConcurrent::run(lambda1);
     }
-
     if(Type_of_analyze == "PayType Composition")
     {
          chart = new QChart();
@@ -1261,6 +1436,47 @@ void MainWindow::on_pushButton_6_clicked()
          payType_series = new QPieSeries();
          QFuture<void> future = QtConcurrent::run(lambda2);
     }
+    if(Type_of_analyze == "Outflow in Different Line")
+    {
+         chart = new QChart();
+         QString title;
+         if(!allStation)
+         {
+              if(!allLineID)
+                title = "Outflow of Line " + lineID_chosen + " in Station " + QString::number(stationID) + " from " + start_date_time + " to " + end_date_time;
+              else title = "Outflow of all lines " + lineID_chosen + " in Station " + QString::number(stationID) + " from " + start_date_time + " to " + end_date_time;
+         }
+         else
+         {
+             if(!allLineID)
+               title = "Outflow of Line " + lineID_chosen + " in all stations from " + start_date_time + " to " + end_date_time;
+             else title = "Outflow of all lines " + lineID_chosen + " in all stations from " + start_date_time + " to " + end_date_time;
+         }
+         chart->setTitle(title);
+         series_diffline = new QSplineSeries();
+         QFuture<void> future = QtConcurrent::run(lambda3);
+    }
+    if(Type_of_analyze == "Inflow in Different Line")
+    {
+         chart = new QChart();
+         QString title;
+         if(!allStation)
+         {
+              if(!allLineID)
+                title = "Inflow of Line " + lineID_chosen + " in Station " + QString::number(stationID) + " from " + start_date_time + " to " + end_date_time;
+              else title = "Inflow of all lines " + lineID_chosen + " in Station " + QString::number(stationID) + " from " + start_date_time + " to " + end_date_time;
+         }
+         else
+         {
+             if(!allLineID)
+               title = "Inflow of Line " + lineID_chosen + " in all stations from " + start_date_time + " to " + end_date_time;
+             else title = "Inflow of all lines " + lineID_chosen + " in all stations from " + start_date_time + " to " + end_date_time;
+         }
+         chart->setTitle(title);
+         series_diffline_in = new QSplineSeries();
+         QFuture<void> future = QtConcurrent::run(lambda4);
+    }
+
 }
 void MainWindow::plot(long long x, long long y, bool isOUT)
 {
@@ -1279,14 +1495,77 @@ void MainWindow::plot(long long x, long long y, bool isOUT)
         //qDebug() << "IN-->";
     }
 }
-//
+void MainWindow::on_OutFlowpoint_diffline(long long x, long long y, bool isOUT)
+{
+    if(isOUT)
+    {
+        //qDebug() << "OUT";
+        series_diffline->append(1000 * x, y);
+        if(MAX < y) MAX = y;
+        //qDebug() <<"--->OUT";
+    }
+    else
+    {
+        //qDebug() << "IN";
+        series_diffline_in->append(1000 * x, y);
+           if(MAX < y) MAX = y;
+        //qDebug() << "--->IN";
+    }
+}
+void MainWindow::on_OutFlow_diffline_finished(bool isOUT)
+{
+    if(isOUT)
+    {
+        QPen pen1(Qt::blue, 8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+        series_diffline->setPointsVisible();
+        series_diffline->setName("Outflow");
+        QFont font;
+        font.setPixelSize(20);
+        chart->setTitleFont(font);
+        chart->setTitleBrush(QBrush(Qt::black));
+        chart->addSeries(series_diffline);
+        auto Y = new QValueAxis(chart);
+        Y->setLabelFormat("%d");
+        Y->setMax(1.1 * MAX);
+        chart->addAxis(Y, Qt::AlignLeft);
+        series_diffline->attachAxis(Y);
+        auto X = new QDateTimeAxis(chart);
+        X->setFormat("hh:mm");
+        chart->addAxis(X, Qt::AlignBottom);
+        series_diffline->attachAxis(X);
+    }
+    else
+    {
+        QPen pen2(Qt::darkRed, 8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+        series_diffline_in->setPointsVisible();
+        series_diffline_in->setName("Inflow");
+        QFont font;
+        font.setPixelSize(20);
+        chart->setTitleFont(font);
+        chart->setTitleBrush(QBrush(Qt::black));
+        chart->addSeries(series_diffline_in);
+        auto Y = new QValueAxis(chart);
+        Y->setLabelFormat("%d");
+        Y->setMax(1.1 * MAX);
+        chart->addAxis(Y, Qt::AlignLeft);
+        series_diffline_in->attachAxis(Y);
+        auto X = new QDateTimeAxis(chart);
+        X->setFormat("hh:mm");
+        chart->addAxis(X, Qt::AlignBottom);
+        series_diffline_in->attachAxis(X);
+    }
+
+    ui->ChartView->setRenderHint(QPainter::Antialiasing);
+    ui->ChartView->setChart(chart);
+    MAX = 0;
+    ui->pushButton_6->setEnabled(true);
+}
 void MainWindow::on_building_index_of_sql(double time)
 {
     QString message;
     message = "File loading finished in " +  QString::number(time) + "s ----> Building the index of sql now...";
     ui->statusbar->showMessage(message);
 }
-
 void MainWindow::on_plot_finished()
 {
     QPen pen1(Qt::blue, 8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
@@ -1319,7 +1598,6 @@ void MainWindow::on_plot_finished()
     ui->pushButton_6->setEnabled(true);
     MAX = 0;
 }
-
 void MainWindow::on_checkBox_stateChanged(int arg1)
 {
     if(ui->checkBox->checkState() != Qt::Checked)
@@ -1331,7 +1609,6 @@ void MainWindow::on_checkBox_stateChanged(int arg1)
     }
 
 }
-
 void MainWindow::on_payType_plot_finished(int t0, int t1, int t2, int t3)
 {
     double sum = t0 + t1 + t2 + t3;
@@ -1353,7 +1630,6 @@ void MainWindow::on_payType_plot_finished(int t0, int t1, int t2, int t3)
     ui->ChartView->setChart(chart);
     ui->pushButton_6->setEnabled(true);
 }
-
 void MainWindow::on_Type_of_analyze_activated(const QString &arg1)
 {
     if(ui->Type_of_analyze->currentText() == "PayType Composition")
@@ -1362,11 +1638,33 @@ void MainWindow::on_Type_of_analyze_activated(const QString &arg1)
         ui->mins_edit->clear();
         ui->hours_edit->setDisabled(true);
         ui->mins_edit->setDisabled(true);
+        ui->comboBox->setDisabled(true);
+        ui->checkBox_2->setDisabled(true);
     }
     if(ui->Type_of_analyze->currentText() == "Inflow & Outflow")
     {
         ui->hours_edit->setEnabled(true);
         ui->mins_edit->setEnabled(true);
+        ui->comboBox->setDisabled(true);
+        ui->checkBox_2->setDisabled(true);
     }
+    if(ui->Type_of_analyze->currentText() == "Inflow in Different Line" ||
+       ui->Type_of_analyze->currentText() == "Outflow in Different Line")
+    {
+        ui->hours_edit->setEnabled(true);
+        ui->mins_edit->setEnabled(true);
+        ui->comboBox->setEnabled(true);
+        ui->checkBox_2->setEnabled(true);
+        ui->lineEdit_3->setText("76");
+    }
+}
 
+void MainWindow::on_checkBox_2_stateChanged(int arg1)
+{
+    if(ui->checkBox_2->checkState() != Qt::Checked)
+          ui->comboBox->setEnabled(true);
+    if(ui->checkBox_2->checkState() != Qt::Unchecked)
+    {
+          ui->comboBox->setEnabled(false);
+    }
 }

@@ -77,6 +77,8 @@ signals:
     void insertfailed();
     void building_index_of_sql(double time); //建立索引
     void OutFlowpoint(long long, long long, bool);
+    void OutFlowpoint_diffline(long long, long long, bool);
+    void OutFlow_diffline_finished(bool);
     //void pushbutton3();
     void plot_finished();
     void payType_plot_finished(int, int, int, int);
@@ -104,12 +106,17 @@ private slots:
     void on_payType_plot_finished(int, int, int, int);
 
     void on_Type_of_analyze_activated(const QString &arg1);
+    void on_checkBox_2_stateChanged(int arg1);
+    void on_OutFlowpoint_diffline(long long, long long, bool);
+    void on_OutFlow_diffline_finished(bool);
 
 private:
     Ui::MainWindow *ui;
     QChart* chart;
     QSplineSeries *series;
     QSplineSeries *series_in;
+    QSplineSeries *series_diffline;
+    QSplineSeries *series_diffline_in;
     QPieSeries *payType_series;
 
 };
