@@ -44,10 +44,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(this, SIGNAL(LoadingProcessChanged(int, int)), this, SLOT(ChangeStatusBarWhileLoaingFile(int, int)));
     //connect(this, SIGNAL(fileloadingFinished(double)), this, SLOT(on_paser_finished()));
     connect(this, SIGNAL(building_index_of_sql(double)), this, SLOT(on_building_index_of_sql(double)));
-    connect(this, SIGNAL(OutFlowpoint(long long, long long, bool)), this, SLOT(plot(long long, long long, bool)));
+    //connect(this, SIGNAL(OutFlowpoint(long long, long long, bool)), this, SLOT(plot(long long, long long, bool)));
     connect(this, SIGNAL(plot_finished()), this, SLOT(on_plot_finished()));
     connect(this, SIGNAL(payType_plot_finished(int, int, int, int)), this, SLOT(on_payType_plot_finished(int, int, int, int)));
-    connect(this, SIGNAL(OutFlowpoint_diffline(long long, long long, bool)), this, SLOT(on_OutFlowpoint_diffline(long long, long long, bool)));
+    //connect(this, SIGNAL(OutFlowpoint_diffline(long long, long long, bool)), this, SLOT(on_OutFlowpoint_diffline(long long, long long, bool)));
     connect(this, SIGNAL(OutFlow_diffline_finished(bool)), this, SLOT(on_OutFlow_diffline_finished(bool)));
     //以下代码初始化了数据库连接
     if (QSqlDatabase::contains("qt_sql_default_connection"))
@@ -98,6 +98,7 @@ void MainWindow::on_pushButton_clicked()
     ui->pushButton_3->setEnabled(false); //在载入文件完成之前，apply是无效的
     ui->pushButton->setEnabled(false);
     ui->progressBar->show();
+    ui->pushButton_6->setDisabled(true);
     time->start();
 
     ///Step0: 解析数据（将csv中每一列都单独存起来) （防冻+多线程解析）
@@ -809,7 +810,24 @@ void MainWindow::csv_parser()
     {
         qDebug() << "Error: Fail to BUILDING INDEX." << sql.lastError();
     }
-    else qDebug() << "Building index finished!";
+    buildingIndex = "CREATE INDEX my_index_2 on METRO_PASSENGERS (timestamp, status)";
+    sql.prepare(buildingIndex);
+    if(!sql.exec())
+    {
+        qDebug() << "Error: Fail to BUILDING INDEX_2." << sql.lastError();
+    }
+    buildingIndex = "CREATE INDEX my_index_3 on METRO_PASSENGERS (timestamp, payType)";
+    sql.prepare(buildingIndex);
+    if(!sql.exec())
+    {
+        qDebug() << "Error: Fail to BUILDING INDEX_3." << sql.lastError();
+    }
+    buildingIndex = "CREATE INDEX my_index_4 on METRO_PASSENGERS (timestamp, stationID, payType)";
+    sql.prepare(buildingIndex);
+    if(!sql.exec())
+    {
+        qDebug() << "Error: Fail to BUILDING INDEX_4." << sql.lastError();
+    }
     //COMMIT
     if(sql.prepare("COMMIT;"))
         qDebug() << "COMMIT query prepared!";
@@ -859,6 +877,7 @@ void MainWindow::onLoadingFinished(double time1, double time2)
     ui->progressBar->hide();
     ui->pushButton_3->setEnabled(true);
     ui->pushButton_6->setEnabled(true);
+    ui->comboBox->clear();
     ui->comboBox->addItem("Line A");
     ui->comboBox->addItem("Line B");
     ui->comboBox->addItem("Line C");
@@ -903,12 +922,9 @@ void MainWindow::onLoadingFinished(double time1, double time2)
     {
          ui->Type_of_analyze->addItem("Inflow in Different Line");
          ui->Type_of_analyze->addItem("Outflow in Different Line");
-         ui->checkBox_2->setEnabled(true);
-         ui->comboBox->setEnabled(true);
     }
-
-    emit(pushbutton3());
-    ui->tabWidget->setCurrentWidget(ui->tab_SQL);
+    //emit(pushbutton3());
+    //ui->tabWidget->setCurrentWidget(ui->tab_SQL);
 }
 //SQL tab 中的run button
 void MainWindow::on_pushButton_3_clicked()
@@ -1000,6 +1016,7 @@ void MainWindow::on_pushButton_4_clicked()
             qDebug() << matrix[i][j];*/
     ui->statusbar->showMessage("Map loaded successfully !");
     ui->pushButton_5->setEnabled(true);
+    ui->pushButton_4->setDisabled(true);
 }
 //Get the Plan
 void MainWindow::on_pushButton_5_clicked()
@@ -1061,13 +1078,20 @@ void MainWindow::on_pushButton_5_clicked()
 //plot!
 void MainWindow::on_pushButton_6_clicked()
 {
-    if(ui->Type_of_analyze->currentText() == "Inflow & Outflow" && (ui->mins_edit->text() == "" || ui->hours_edit->text() == ""))
+    if((ui->Type_of_analyze->currentText() == "Inflow & Outflow" ||
+        ui->Type_of_analyze->currentText() == "Inflow in Different Line" ||
+        ui->Type_of_analyze->currentText() == "Outflow in Different Line") &&
+        (ui->mins_edit->text() == "" || ui->hours_edit->text() == ""))
     {
         QMessageBox::information(this, "Ooops", "Please type in \"time step\"");
         return;
     }
     // mins == 0 && hours == 0
-    if(ui->Type_of_analyze->currentText() == "Inflow & Outflow" && ui->mins_edit->text() == "0" &&  ui->hours_edit->text() =="0")
+    if((ui->Type_of_analyze->currentText() == "Inflow & Outflow" ||
+        ui->Type_of_analyze->currentText() == "Inflow in Different Line" ||
+        ui->Type_of_analyze->currentText() == "Outflow in Different Line") &&
+        ui->mins_edit->text() == "0" &&
+        ui->hours_edit->text() =="0")
     {
         QMessageBox::information(this, "Ooops", "Time Step can't be 0");
         return;
@@ -1160,7 +1184,7 @@ void MainWindow::on_pushButton_6_clicked()
             }
             else qDebug() << "database opened successfully in lambda1 thread!";
             QSqlQuery sql(database);
-            QString query = "select * from METRO_PASSENGERS where timestamp >= :startTime and timestamp <= :endTime ";
+            QString query = "select COUNT(*) from METRO_PASSENGERS where timestamp >= :startTime and timestamp <= :endTime ";
             if(!allStation)
                 query += "and stationID = :StationID and status = :Status;";
             else query += "and status = :Status;";
@@ -1175,28 +1199,31 @@ void MainWindow::on_pushButton_6_clicked()
                 sql.bindValue(":Status", 0);
                 if(!sql.exec()) qDebug() << "Outflow select failed";
 
-                if(sql.last())
-                {
-                    numberOfRows =  sql.at() + 1;
-                    sql.first();
-                    sql.previous();
-                }
+                sql.next();
+                numberOfRows = sql.value(0).toInt();
                 /*qDebug() << "SELECT * FROM METRO_PASSENGERS WHERE timestamp >= " << i << " AND timestamp <= " << i + interval <<
                             " AND stationID = " << stationID << "and status = " << 0 <<";";*/
-                emit(OutFlowpoint(i+interval/2, numberOfRows, true));
+                //emit(OutFlowpoint(i+interval/2, numberOfRows, true));
+                series->append(1000 * i+interval/2, numberOfRows);
+                   if(MAX < numberOfRows) MAX = numberOfRows;
 
                 sql.bindValue(":Status", 1);
                 if(!sql.exec()) qDebug() << "Outflow select failed";
                 numberOfRows = 0;
+                /*
                 if(sql.last())
                 {
                     numberOfRows =  sql.at() + 1;
                     sql.first();
                     sql.previous();
-                }
+                }*/
+                sql.next();
+                numberOfRows = sql.value(0).toInt();
                 /*qDebug() << "SELECT * FROM METRO_PASSENGERS WHERE timestamp >= " << i << " AND timestamp <= " << i + interval <<
                             " AND stationID = " << stationID << "and status = " << 1 <<";"; */
-                emit(OutFlowpoint(i+interval/2, numberOfRows, false));
+                //emit(OutFlowpoint(i+interval/2, numberOfRows, false));
+                series_in->append(1000 * i+interval/2, numberOfRows);
+                   if(MAX < numberOfRows) MAX = numberOfRows;
             }
             emit(plot_finished());
             database.close();
@@ -1221,7 +1248,7 @@ void MainWindow::on_pushButton_6_clicked()
         }
         else qDebug() << "database opened successfully in lambda2 thread!";
         QSqlQuery sql(database);
-        QString query = "select * from METRO_PASSENGERS where timestamp >= :startTime and timestamp <= :endTime ";
+        QString query = "select COUNT(*) from METRO_PASSENGERS where timestamp >= :startTime and timestamp <= :endTime ";
         if(!allStation)
             query += "and stationID = :StationID and status = 1 and payType = :PayType;";
         else query += "and status = 1 and payType = :PayType;";
@@ -1237,44 +1264,28 @@ void MainWindow::on_pushButton_6_clicked()
         sql.bindValue(":PayType", 0);
         if(!sql.exec()) qDebug() << "Outflow select failed";
         numberOfRows_type0 = 0;
-        if(sql.last())
-        {
-            numberOfRows_type0 =  sql.at() + 1;
-            sql.first();
-            sql.previous();
-        }
+        sql.next();
+        numberOfRows_type0 = sql.value(0).toInt();
         /*qDebug() << "SELECT * FROM METRO_PASSENGERS WHERE timestamp >= " << start_time << " AND timestamp <= " << i + interval <<
                         " AND stationID = " << stationID << "and status = " << 1 <<";"; */
 
         sql.bindValue(":PayType", 1);
         if(!sql.exec()) qDebug() << "Outflow select failed";
         numberOfRows_type1 = 0;
-        if(sql.last())
-        {
-            numberOfRows_type1 =  sql.at() + 1;
-            sql.first();
-            sql.previous();
-        }
+        sql.next();
+        numberOfRows_type1 = sql.value(0).toInt();
 
         sql.bindValue(":PayType", 2);
         if(!sql.exec()) qDebug() << "Outflow select failed";
         numberOfRows_type2 = 0;
-        if(sql.last())
-        {
-            numberOfRows_type2 =  sql.at() + 1;
-            sql.first();
-            sql.previous();
-        }
+        sql.next();
+        numberOfRows_type2 = sql.value(0).toInt();
 
         sql.bindValue(":PayType", 3);
         if(!sql.exec()) qDebug() << "Outflow select failed";
         numberOfRows_type3 = 0;
-        if(sql.last())
-        {
-            numberOfRows_type3 =  sql.at() + 1;
-            sql.first();
-            sql.previous();
-        }
+        sql.next();
+        numberOfRows_type3 = sql.value(0).toInt();
 
         emit(payType_plot_finished(numberOfRows_type0, numberOfRows_type1, numberOfRows_type2, numberOfRows_type3));
         database.close();
@@ -1298,7 +1309,7 @@ void MainWindow::on_pushButton_6_clicked()
             qDebug() << "Error: Failed to connect database in lambda3 thread" << database.lastError();
         }
         else qDebug() << "database opened successfully in lambda3 thread!";
-        QString query = "select * from METRO_PASSENGERS where timestamp >= :startTime and timestamp <= :endTime ";
+        QString query = "select COUNT(*) from METRO_PASSENGERS where timestamp >= :startTime and timestamp <= :endTime ";
         QSqlQuery sql(database);
         if(!allStation)
         {
@@ -1331,15 +1342,13 @@ void MainWindow::on_pushButton_6_clicked()
             sql.bindValue(":Status", 0);
             if(!sql.exec()) qDebug() << "Outflow select failed";
 
-            if(sql.last())
-            {
-                numberOfRows =  sql.at() + 1;
-                sql.first();
-                sql.previous();
-            }
+            sql.next();
+            numberOfRows = sql.value(0).toInt();
             /*qDebug() << "SELECT * FROM METRO_PASSENGERS WHERE timestamp >= " << i << " AND timestamp <= " << i + interval <<
                         " AND stationID = " << stationID << "and status = " << 0 <<";";*/
-            emit(OutFlowpoint_diffline(i+interval/2, numberOfRows, true));
+            //emit(OutFlowpoint_diffline(i+interval/2, numberOfRows, true));
+            series_diffline->append(1000 * i + interval/2,  numberOfRows);
+            if(MAX < numberOfRows) MAX = numberOfRows;
         }
         emit(OutFlow_diffline_finished(true));
         database.close();
@@ -1363,7 +1372,7 @@ void MainWindow::on_pushButton_6_clicked()
             qDebug() << "Error: Failed to connect database in lambda4 thread" << database.lastError();
         }
         else qDebug() << "database opened successfully in lambda4 thread!";
-        QString query = "select * from METRO_PASSENGERS where timestamp >= :startTime and timestamp <= :endTime ";
+        QString query = "select COUNT(*) from METRO_PASSENGERS where timestamp >= :startTime and timestamp <= :endTime ";
         QSqlQuery sql(database);
         if(!allStation)
         {
@@ -1397,18 +1406,16 @@ void MainWindow::on_pushButton_6_clicked()
             //qDebug()   << query;
             if(!sql.exec()) qDebug() << "Inflow select failed";
 
-            if(sql.last())
-            {
-                numberOfRows =  sql.at() + 1;
-                sql.first();
-                sql.previous();
-            }
+            sql.next();
+            numberOfRows = sql.value(0).toInt();
             /*qDebug() << query;
             qDebug() << "SELECT * FROM METRO_PASSENGERS WHERE timestamp >= " << i << " AND timestamp <= " << i + interval <<
                         " AND stationID = " << stationID << "and status = " << 1 <<"and lineID = " << lineID_chosen <<";";
             qDebug() << "(" << i + interval/2 << ", " << numberOfRows << ")";
             */
-            emit(OutFlowpoint_diffline(i+interval/2, numberOfRows, false));
+            //emit(OutFlowpoint_diffline(i+interval/2, numberOfRows, false));
+            series_diffline_in->append(1000 * i + interval/2,  numberOfRows);
+            if(MAX < numberOfRows) MAX = numberOfRows;
         }
         emit(OutFlow_diffline_finished(false));
         database.close();
@@ -1478,23 +1485,8 @@ void MainWindow::on_pushButton_6_clicked()
     }
 
 }
-void MainWindow::plot(long long x, long long y, bool isOUT)
-{
-    if(isOUT)
-    {
-        //qDebug() << "OUT";
-        series->append(1000 * x, y);
-            if(MAX < y) MAX = y;
-        //qDebug() << "OUT-->";
-    }
-    else
-    {
-        //qDebug() << "IN";
-        series_in->append(1000 * x, y);
-           if(MAX < y) MAX = y;
-        //qDebug() << "IN-->";
-    }
-}
+
+/*
 void MainWindow::on_OutFlowpoint_diffline(long long x, long long y, bool isOUT)
 {
     if(isOUT)
@@ -1512,11 +1504,12 @@ void MainWindow::on_OutFlowpoint_diffline(long long x, long long y, bool isOUT)
         //qDebug() << "--->IN";
     }
 }
+*/
 void MainWindow::on_OutFlow_diffline_finished(bool isOUT)
 {
     if(isOUT)
     {
-        QPen pen1(Qt::blue, 8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+        //QPen pen1(Qt::blue, 8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
         series_diffline->setPointsVisible();
         series_diffline->setName("Outflow");
         QFont font;
@@ -1536,7 +1529,7 @@ void MainWindow::on_OutFlow_diffline_finished(bool isOUT)
     }
     else
     {
-        QPen pen2(Qt::darkRed, 8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+        //QPen pen2(Qt::darkRed, 8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
         series_diffline_in->setPointsVisible();
         series_diffline_in->setName("Inflow");
         QFont font;
@@ -1658,7 +1651,6 @@ void MainWindow::on_Type_of_analyze_activated(const QString &arg1)
         ui->lineEdit_3->setText("76");
     }
 }
-
 void MainWindow::on_checkBox_2_stateChanged(int arg1)
 {
     if(ui->checkBox_2->checkState() != Qt::Checked)

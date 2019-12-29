@@ -76,8 +76,8 @@ signals:
     void droptable();
     void insertfailed();
     void building_index_of_sql(double time); //建立索引
-    void OutFlowpoint(long long, long long, bool);
-    void OutFlowpoint_diffline(long long, long long, bool);
+    //void OutFlowpoint(long long, long long, bool);
+    //void OutFlowpoint_diffline(long long, long long, bool);
     void OutFlow_diffline_finished(bool);
     //void pushbutton3();
     void plot_finished();
@@ -100,14 +100,14 @@ private slots:
     void on_pushButton_5_clicked();
     void on_pushButton_6_clicked();
     void on_building_index_of_sql(double time);
-    void plot(long long ,long long, bool);
+    //void plot(long long ,long long, bool);
     void on_plot_finished();
     void on_checkBox_stateChanged(int arg1);
     void on_payType_plot_finished(int, int, int, int);
 
     void on_Type_of_analyze_activated(const QString &arg1);
     void on_checkBox_2_stateChanged(int arg1);
-    void on_OutFlowpoint_diffline(long long, long long, bool);
+    //void on_OutFlowpoint_diffline(long long, long long, bool);
     void on_OutFlow_diffline_finished(bool);
 
 private:

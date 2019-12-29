@@ -270,7 +270,7 @@ p, li { white-space: pre-wrap; }
                </font>
               </property>
               <property name="text">
-               <string>Type of analyze</string>
+               <string>Type of analysis</string>
               </property>
              </widget>
             </item>
@@ -337,12 +337,15 @@ p, li { white-space: pre-wrap; }
                </font>
               </property>
               <property name="text">
-               <string>time step</string>
+               <string>Time step</string>
               </property>
              </widget>
             </item>
             <item row="14" column="0">
              <widget class="QSpinBox" name="hours_edit">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
               <property name="maximum">
                <number>24</number>
               </property>
@@ -452,7 +455,7 @@ p, li { white-space: pre-wrap; }
                </font>
               </property>
               <property name="text">
-               <string>select a station</string>
+               <string>Select a station</string>
               </property>
              </widget>
             </item>
@@ -542,7 +545,7 @@ p, li { white-space: pre-wrap; }
                </font>
               </property>
               <property name="text">
-               <string>select a line</string>
+               <string>Select a line</string>
               </property>
              </widget>
             </item>
